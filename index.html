@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0f172a">
+<meta name="description" content="BozorUz - O'zbekistondagi zamonaviy onlayn marketplace">
+<title>BozorUz - Onlayn Marketplace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: { sans: ['Inter'], display: ['Space Grotesk'] },
+      colors: {
+        brand: { 50:'#eff6ff',100:'#dbeafe',500:'#3b82f6',600:'#2563eb',700:'#1d4ed8' },
+        ink: { 50:'#f8fafc',100:'#f1f5f9',200:'#e2e8f0',300:'#cbd5e1',400:'#94a3b8',500:'#64748b',700:'#334155',900:'#0f172a' }
+      }
+    }
+  }
+}
+</script>
+<style>
+  [v-cloak]{display:none}
+  *{-webkit-tap-highlight-color:transparent}
+  html{scroll-behavior:smooth}
+  body{font-family:'Inter',sans-serif;background:#fafbfc}
+  .font-display{font-family:'Space Grotesk',sans-serif}
+
+  .fade-enter-active,.fade-leave-active{transition:opacity .3s}
+  .fade-enter-from,.fade-leave-to{opacity:0}
+  .slide-enter-active,.slide-leave-active{transition:transform .4s cubic-bezier(.4,0,.2,1)}
+  .slide-enter-from,.slide-leave-to{transform:translateX(100%)}
+  .scale-enter-active,.scale-leave-active{transition:all .3s cubic-bezier(.4,0,.2,1)}
+  .scale-enter-from,.scale-leave-to{transform:scale(.95);opacity:0}
+  .drop-enter-active,.drop-leave-active{transition:all .2s}
+  .drop-enter-from,.drop-leave-to{transform:translateY(-8px);opacity:0}
+
+  .scrollbar-hide::-webkit-scrollbar{display:none}
+  .scrollbar-hide{-ms-overflow-style:none;scrollbar-width:none}
+  .line-clamp-1{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+  .line-clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .line-clamp-3{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .card-hover{transition:all .4s cubic-bezier(.4,0,.2,1)}
+  .card-hover:hover{transform:translateY(-6px);box-shadow:0 20px 40px -12px rgba(15,23,42,.15)}
+  .fade-in{animation:fadeIn .5s ease}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+  .gradient-text{background:linear-gradient(135deg,#2563eb,#7c3aed);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .glass{background:rgba(255,255,255,.85);backdrop-filter:blur(12px)}
+  .btn-primary{background:linear-gradient(135deg,#2563eb,#1d4ed8);transition:all .3s;box-shadow:0 4px 14px 0 rgba(37,99,235,.25)}
+  .btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px 0 rgba(37,99,235,.35)}
+  .btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+  .pill{display:inline-flex;align-items:center;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:600}
+  .shine{position:relative;overflow:hidden}
+  .shine::after{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);transition:left .6s}
+  .shine:hover::after{left:100%}
+  input:focus,select:focus,textarea:focus{outline:none}
+  button:disabled{cursor:not-allowed;opacity:.5}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-track{background:#f1f5f9}
+  ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:10px;border:2px solid #f1f5f9}
+  .blob{position:absolute;border-radius:50%;filter:blur(80px);opacity:.4;animation:blob 20s infinite}
+  @keyframes blob{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(30px,-50px) scale(1.1)}66%{transform:translate(-20px,20px) scale(.9)}}
+</style>
+</head>
+<body>
+<div id="app" v-cloak>
+
+  <!-- LOADING -->
+  <div v-if="isLoading" class="fixed inset-0 bg-white z-[100] flex items-center justify-center">
+    <div class="text-center">
+      <div class="relative w-20 h-20 mx-auto mb-6">
+        <div class="absolute inset-0 border-4 border-brand-500/20 rounded-full"></div>
+        <div class="absolute inset-0 border-4 border-transparent border-t-brand-600 rounded-full animate-spin"></div>
+      </div>
+      <p class="text-ink-500 font-medium">Yuklanmoqda...</p>
+    </div>
+  </div>
+
+  <!-- API ERROR -->
+  <div v-else-if="apiError" class="min-h-screen flex items-center justify-center p-4">
+    <div class="text-center max-w-md">
+      <div class="w-20 h-20 bg-red-50 rounded-3xl flex items-center justify-center mx-auto mb-5">
+        <i class="fas fa-exclamation-triangle text-4xl text-red-500"></i>
+      </div>
+      <h1 class="font-display text-2xl font-bold mb-3">Server bilan aloqa yo'q</h1>
+      <p class="text-ink-500 mb-2 text-sm">{{ apiError }}</p>
+      <p class="text-xs text-ink-400 mb-6 break-all">API: {{ API_URL }}</p>
+      <button @click="retryConnection" class="btn-primary text-white px-8 py-3.5 rounded-xl font-semibold">
+        <i class="fas fa-redo mr-2"></i>Qayta urinish
+      </button>
+    </div>
+  </div>
+
+  <div v-else>
+    <!-- HEADER -->
+    <header class="glass sticky top-0 z-40 border-b border-ink-200/60">
+      <div class="max-w-7xl mx-auto px-4 lg:px-6 py-3.5">
+        <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2.5 cursor-pointer flex-shrink-0" @click="navigate('home')">
+            <div class="w-11 h-11 bg-gradient-to-br from-brand-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-brand-500/30">
+              <i class="fas fa-shopping-bag text-white text-lg"></i>
+            </div>
+            <div class="hidden sm:block">
+              <div class="font-display font-bold text-lg text-ink-900">BozorUz</div>
+              <div class="text-[10px] text-ink-400 tracking-wider uppercase">Marketplace</div>
+            </div>
+          </div>
+
+          <div class="flex-1 relative max-w-2xl">
+            <input v-model="searchQuery" @keyup.enter="doSearch" type="text" placeholder="Mahsulot qidirish..."
+                   class="w-full px-4 py-3 pl-12 bg-ink-100/70 border border-transparent rounded-2xl focus:bg-white focus:border-brand-500 transition">
+            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-ink-400"></i>
+            <button v-if="searchQuery" @click="searchQuery=''" class="absolute right-4 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-700">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+
+          <div class="flex items-center gap-1">
+            <button @click="cartOpen=true" class="relative w-11 h-11 hover:bg-ink-100 rounded-xl flex items-center justify-center" title="Savat">
+              <i class="fas fa-shopping-bag text-ink-700"></i>
+              <span v-if="cartCount>0" class="absolute -top-0.5 -right-0.5 bg-brand-600 text-white text-[10px] font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">{{ cartCount }}</span>
+            </button>
+
+            <button @click="navigate('wishlist')" class="relative w-11 h-11 hover:bg-ink-100 rounded-xl flex items-center justify-center" title="Sevimlilar">
+              <i class="fas fa-heart text-ink-700"></i>
+              <span v-if="wishlist.length>0" class="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">{{ wishlist.length }}</span>
+            </button>
+
+            <div class="relative">
+              <button @click="userMenuOpen=!userMenuOpen" class="flex items-center gap-2 p-1.5 hover:bg-ink-100 rounded-xl">
+                <div v-if="user" class="w-8 h-8 bg-gradient-to-br from-brand-600 to-purple-600 rounded-lg flex items-center justify-center text-white text-sm font-bold">
+                  {{ user.name.charAt(0).toUpperCase() }}
+                </div>
+                <div v-else class="w-8 h-8 bg-ink-100 rounded-lg flex items-center justify-center">
+                  <i class="fas fa-user text-ink-600 text-sm"></i>
+                </div>
+              </button>
+
+              <transition name="drop">
+                <div v-if="userMenuOpen" class="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-ink-200 overflow-hidden z-50">
+                  <div v-if="user" class="px-4 py-3 bg-gradient-to-br from-brand-600 to-purple-600 text-white">
+                    <div class="font-semibold">{{ user.name }}</div>
+                    <div class="text-xs opacity-90">{{ user.email }}</div>
+                  </div>
+                  <div class="p-1.5">
+                    <template v-if="user">
+                      <button @click="navigate('profile'); userMenuOpen=false" class="w-full text-left px-3 py-2.5 hover:bg-ink-50 rounded-lg text-sm font-medium flex items-center gap-3">
+                        <i class="fas fa-user text-ink-400 w-4"></i>Shaxsiy kabinet
+                      </button>
+                      <button @click="navigate('orders'); userMenuOpen=false" class="w-full text-left px-3 py-2.5 hover:bg-ink-50 rounded-lg text-sm font-medium flex items-center gap-3">
+                        <i class="fas fa-box text-ink-400 w-4"></i>Buyurtmalarim
+                      </button>
+                      <button @click="navigate('addresses'); userMenuOpen=false" class="w-full text-left px-3 py-2.5 hover:bg-ink-50 rounded-lg text-sm font-medium flex items-center gap-3">
+                        <i class="fas fa-map-marker-alt text-ink-400 w-4"></i>Manzillarim
+                      </button>
+                      <div v-if="user.role === 'admin'" class="border-t my-1.5"></div>
+                      <a v-if="user.role === 'admin'" href="/admin" class="w-full text-left px-3 py-2.5 hover:bg-brand-50 rounded-lg text-sm font-medium text-brand-700 flex items-center gap-3">
+                        <i class="fas fa-shield-alt w-4"></i>Admin Panel
+                      </a>
+                      <div class="border-t my-1.5"></div>
+                      <button @click="logout" class="w-full text-left px-3 py-2.5 hover:bg-red-50 rounded-lg text-sm font-medium text-red-600 flex items-center gap-3">
+                        <i class="fas fa-sign-out-alt w-4"></i>Chiqish
+                      </button>
+                    </template>
+                    <template v-else>
+                      <button @click="openAuth('login'); userMenuOpen=false" class="w-full text-left px-3 py-2.5 hover:bg-ink-50 rounded-lg text-sm font-medium flex items-center gap-3">
+                        <i class="fas fa-sign-in-alt text-ink-400 w-4"></i>Kirish
+                      </button>
+                      <button @click="openAuth('register'); userMenuOpen=false" class="w-full text-left px-3 py-2.5 hover:bg-ink-50 rounded-lg text-sm font-medium flex items-center gap-3">
+                        <i class="fas fa-user-plus text-ink-400 w-4"></i>Ro'yxatdan o'tish
+                      </button>
+                    </template>
+                  </div>
+                </div>
+              </transition>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="categories.length>0" class="border-t border-ink-100">
+        <div class="max-w-7xl mx-auto px-4 lg:px-6 overflow-x-auto scrollbar-hide">
+          <div class="flex gap-2 py-2.5">
+            <button @click="selectedCategory='all'"
+              :class="['px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all', selectedCategory==='all' ? 'bg-ink-900 text-white' : 'text-ink-600 hover:bg-ink-100']">
+              <i class="fas fa-th-large mr-1.5"></i>Barchasi
+            </button>
+            <button v-for="cat in categories" :key="cat.id" @click="selectedCategory=cat.id"
+              :class="['px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all flex items-center gap-1.5', selectedCategory===cat.id ? 'bg-ink-900 text-white' : 'text-ink-600 hover:bg-ink-100']">
+              <i v-if="cat.icon" :class="cat.icon"></i>{{ cat.name }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- HOME -->
+    <main v-if="currentView==='home'" class="max-w-7xl mx-auto px-4 lg:px-6 py-8 fade-in">
+      <div class="relative rounded-3xl overflow-hidden mb-12 bg-ink-900">
+        <div class="absolute inset-0">
+          <div class="blob w-96 h-96 bg-brand-600 -top-20 -left-20"></div>
+          <div class="blob w-96 h-96 bg-purple-600 -bottom-20 -right-20" style="animation-delay:-7s"></div>
+        </div>
+        <div class="relative p-8 md:p-16 text-white">
+          <div class="max-w-2xl">
+            <span class="pill bg-white/10 backdrop-blur border border-white/20 mb-5">
+              <i class="fas fa-bolt text-yellow-400 mr-2"></i>Zamonaviy marketplace
+            </span>
+            <h1 class="font-display text-4xl md:text-6xl font-bold mb-5 leading-tight">
+              Minglab mahsulotlar<br>
+              <span class="bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent">bir joyda</span>
+            </h1>
+            <p class="text-lg md:text-xl mb-8 opacity-80">Eng yaxshi narxlar, sifatli mahsulotlar, tez yetkazib berish</p>
+            <button @click="navigate('catalog')" class="bg-white text-ink-900 px-8 py-3.5 rounded-xl font-semibold hover:bg-ink-100 transition inline-flex items-center gap-2">
+              Xarid qilish <i class="fas fa-arrow-right"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="categories.length>0" class="mb-12">
+        <div class="mb-6">
+          <div class="text-xs font-semibold text-brand-600 uppercase tracking-wider mb-1">Kategoriyalar</div>
+          <h2 class="font-display text-3xl font-bold text-ink-900">Nima izlayapsiz?</h2>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <button v-for="cat in categories" :key="cat.id" @click="selectedCategory=cat.id; navigate('catalog')"
+                  class="group bg-white rounded-2xl p-6 hover:shadow-xl hover:-translate-y-1 transition-all text-center border border-ink-100">
+            <div class="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-brand-500 to-purple-600 flex items-center justify-center mb-4 group-hover:scale-110 transition shadow-lg shadow-brand-500/30">
+              <i :class="cat.icon || 'fas fa-tag'" class="text-white text-xl"></i>
+            </div>
+            <div class="font-semibold text-ink-900 text-sm">{{ cat.name }}</div>
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <div class="flex items-end justify-between mb-6">
+          <div>
+            <div class="text-xs font-semibold text-brand-600 uppercase tracking-wider mb-1">Katalog</div>
+            <h2 class="font-display text-3xl font-bold text-ink-900">{{ filteredProducts.length }} ta mahsulot</h2>
+          </div>
+          <button v-if="products.length>0" @click="navigate('catalog')" class="text-sm font-semibold text-ink-600 hover:text-brand-600 flex items-center gap-1.5">
+            Barchasi <i class="fas fa-arrow-right text-xs"></i>
+          </button>
+        </div>
+
+        <div v-if="filteredProducts.length===0" class="bg-white rounded-3xl p-16 text-center border border-dashed border-ink-200">
+          <div class="w-20 h-20 mx-auto rounded-3xl bg-ink-100 flex items-center justify-center mb-5">
+            <i class="fas fa-box-open text-3xl text-ink-400"></i>
+          </div>
+          <h3 class="font-display font-bold text-xl text-ink-900 mb-2">
+            {{ searchQuery ? 'Mahsulot topilmadi' : 'Hozircha mahsulotlar yo\'q' }}
+          </h3>
+          <p class="text-ink-500 mb-4">
+            {{ searchQuery ? 'Boshqa so\'z bilan qidirib ko\'ring' : 'Mahsulotlar admin panel orqali qo\'shiladi' }}
+          </p>
+          <button v-if="searchQuery" @click="searchQuery=''" class="text-brand-600 font-semibold hover:underline">
+            Qidiruvni tozalash
+          </button>
+        </div>
+
+        <div v-else class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+          <div v-for="p in filteredProducts" :key="p.id"
+               class="bg-white rounded-2xl overflow-hidden card-hover cursor-pointer border border-ink-100"
+               @click="openProduct(p)">
+            <div class="aspect-square bg-ink-50 overflow-hidden relative">
+              <img :src="p.images?.[0] || placeholderImg" :alt="p.name" class="w-full h-full object-cover" loading="lazy">
+              <span v-if="p.discount" class="absolute top-3 left-3 bg-red-500 text-white text-xs px-2.5 py-1 rounded-lg font-bold">-{{ p.discount }}%</span>
+            </div>
+            <div class="p-4">
+              <div v-if="p.brand" class="text-[11px] font-semibold text-brand-600 uppercase mb-1.5">{{ p.brand }}</div>
+              <h3 class="text-sm font-semibold text-ink-900 line-clamp-2 h-10 mb-2.5">{{ p.name }}</h3>
+              <div class="flex items-center gap-1.5 mb-3">
+                <i v-for="i in 5" :key="i" :class="['fas fa-star text-[10px]', i <= Math.round(p.rating || 0) ? 'text-yellow-400' : 'text-ink-200']"></i>
+                <span class="text-[11px] text-ink-400">({{ p.reviews_count || 0 }})</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <div>
+                  <div v-if="p.old_price" class="text-[11px] text-ink-400 line-through">{{ formatPrice(p.old_price) }}</div>
+                  <div class="font-display font-bold text-ink-900">{{ formatPrice(p.price) }}</div>
+                </div>
+                <button @click.stop="addToCart(p)" class="w-9 h-9 bg-ink-900 hover:bg-brand-600 text-white rounded-xl flex items-center justify-center transition">
+                  <i class="fas fa-plus text-xs"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- CATALOG -->
+    <main v-else-if="currentView==='catalog'" class="max-w-7xl mx-auto px-4 lg:px-6 py-8 fade-in">
+      <nav class="text-sm text-ink-500 mb-6 flex items-center gap-2">
+        <span @click="navigate('home')" class="hover:text-brand-600 cursor-pointer font-medium">Bosh sahifa</span>
+        <i class="fas fa-chevron-right text-xs text-ink-300"></i>
+        <span class="text-ink-900 font-medium">{{ selectedCategory !== 'all' ? (categories.find(c => c.id === selectedCategory)?.name || 'Katalog') : 'Katalog' }}</span>
+      </nav>
+
+      <div class="flex flex-col md:flex-row gap-8">
+        <aside class="w-full md:w-72 flex-shrink-0">
+          <div class="bg-white p-6 rounded-2xl border border-ink-100 sticky top-32">
+            <div class="flex items-center justify-between mb-6">
+              <h3 class="font-display font-bold text-ink-900"><i class="fas fa-sliders-h text-brand-600 mr-2"></i>Filtrlar</h3>
+              <button @click="resetFilters" class="text-xs font-semibold text-brand-600 hover:underline">Tozalash</button>
+            </div>
+
+            <div v-if="categories.length>0" class="mb-5">
+              <label class="text-xs font-semibold text-ink-500 uppercase mb-2 block">Kategoriya</label>
+              <select v-model="selectedCategory" class="w-full px-3 py-2.5 bg-ink-50 rounded-xl text-sm font-medium">
+                <option value="all">Barchasi</option>
+                <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+              </select>
+            </div>
+
+            <div class="mb-5">
+              <label class="text-xs font-semibold text-ink-500 uppercase mb-2 block">Narx (so'm)</label>
+              <div class="flex gap-2">
+                <input v-model.number="filters.minPrice" type="number" placeholder="Min" class="w-full px-3 py-2.5 bg-ink-50 rounded-xl text-sm">
+                <input v-model.number="filters.maxPrice" type="number" placeholder="Max" class="w-full px-3 py-2.5 bg-ink-50 rounded-xl text-sm">
+              </div>
+            </div>
+
+            <label class="flex items-center gap-2.5 text-sm cursor-pointer p-2 hover:bg-ink-50 rounded-lg">
+              <input type="checkbox" v-model="filters.inStock" class="w-4 h-4 rounded text-brand-600">
+              <span class="font-medium">Faqat mavjud</span>
+            </label>
+          </div>
+        </aside>
+
+        <div class="flex-1">
+          <div class="flex justify-between items-center mb-6">
+            <div>
+              <span class="font-display font-bold text-2xl text-ink-900">{{ filteredProducts.length }}</span>
+              <span class="text-ink-500 ml-1">mahsulot</span>
+            </div>
+            <select v-model="sortBy" class="px-4 py-2.5 bg-white border border-ink-200 rounded-xl text-sm font-medium">
+              <option value="popular">Ommabop</option>
+              <option value="price-asc">Narx ↑</option>
+              <option value="price-desc">Narx ↓</option>
+              <option value="new">Yangi</option>
+            </select>
+          </div>
+
+          <div v-if="filteredProducts.length===0" class="bg-white rounded-3xl p-16 text-center border border-dashed border-ink-200">
+            <i class="fas fa-search text-4xl text-ink-300 mb-4"></i>
+            <p class="text-ink-500 font-medium">Mahsulot topilmadi</p>
+          </div>
+
+          <div v-else class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+            <div v-for="p in filteredProducts" :key="p.id"
+                 class="bg-white rounded-2xl overflow-hidden card-hover cursor-pointer border border-ink-100"
+                 @click="openProduct(p)">
+              <div class="aspect-square bg-ink-50 overflow-hidden relative">
+                <img :src="p.images?.[0] || placeholderImg" class="w-full h-full object-cover" loading="lazy">
+                <span v-if="p.discount" class="absolute top-3 left-3 bg-red-500 text-white text-xs px-2.5 py-1 rounded-lg font-bold">-{{ p.discount }}%</span>
+              </div>
+              <div class="p-4">
+                <div v-if="p.brand" class="text-[11px] font-semibold text-brand-600 uppercase mb-1.5">{{ p.brand }}</div>
+                <h3 class="text-sm font-semibold text-ink-900 line-clamp-2 h-10 mb-2.5">{{ p.name }}</h3>
+                <div class="flex items-center gap-1.5 mb-3">
+                  <i v-for="i in 5" :key="i" :class="['fas fa-star text-[10px]', i <= Math.round(p.rating || 0) ? 'text-yellow-400' : 'text-ink-200']"></i>
+                  <span class="text-[11px] text-ink-400">({{ p.reviews_count || 0 }})</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div v-if="p.old_price" class="text-[11px] text-ink-400 line-through">{{ formatPrice(p.old_price) }}</div>
+                    <div class="font-display font-bold text-ink-900">{{ formatPrice(p.price) }}</div>
+                  </div>
+                  <button @click.stop="addToCart(p)" class="w-9 h-9 bg-ink-900 hover:bg-brand-600 text-white rounded-xl flex items-center justify-center transition">
+                    <i class="fas fa-plus text-xs"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- PRODUCT DETAIL -->
+    <main v-else-if="currentView==='product' && selectedProduct" class="max-w-7xl mx-auto px-4 lg:px-6 py-8 fade-in">
+      <nav class="text-sm text-ink-500 mb-6 flex items-center gap-2 flex-wrap">
+        <span @click="navigate('home')" class="hover:text-brand-600 cursor-pointer font-medium">Bosh sahifa</span>
+        <i class="fas fa-chevron-right text-xs text-ink-300"></i>
+        <span @click="navigate('catalog')" class="hover:text-brand-600 cursor-pointer font-medium">Katalog</span>
+        <i class="fas fa-chevron-right text-xs text-ink-300"></i>
+        <span class="text-ink-900 font-medium line-clamp-1">{{ selectedProduct.name }}</span>
+      </nav>
+
+      <div class="grid md:grid-cols-2 gap-10 mb-10">
+        <div class="bg-white rounded-3xl overflow-hidden border border-ink-100">
+          <img :src="selectedProduct.images?.[0] || placeholderImg" class="w-full aspect-square object-cover">
+        </div>
+
+        <div>
+          <div v-if="selectedProduct.brand" class="pill bg-brand-50 text-brand-700 mb-3">{{ selectedProduct.brand }}</div>
+          <h1 class="font-display text-3xl font-bold mb-4 text-ink-900">{{ selectedProduct.name }}</h1>
+
+          <div class="flex items-center gap-3 mb-6">
+            <div class="flex gap-0.5">
+              <i v-for="i in 5" :key="i" :class="['fas fa-star text-sm', i <= Math.round(selectedProduct.rating || 0) ? 'text-yellow-400' : 'text-ink-200']"></i>
+            </div>
+            <span class="text-sm text-ink-500">({{ selectedProduct.reviews_count || 0 }} sharh)</span>
+          </div>
+
+          <div class="mb-6 p-6 bg-gradient-to-br from-ink-50 to-white rounded-2xl border border-ink-100">
+            <span v-if="selectedProduct.old_price" class="text-ink-400 line-through mr-3 text-lg">{{ formatPrice(selectedProduct.old_price) }}</span>
+            <span class="font-display text-4xl font-bold gradient-text">{{ formatPrice(selectedProduct.price) }}</span>
+          </div>
+
+          <p class="text-ink-600 mb-8 leading-relaxed">{{ selectedProduct.description || 'Tavsif yo\'q' }}</p>
+
+          <div class="mb-6">
+            <label class="text-xs font-semibold text-ink-500 uppercase tracking-wider mb-3 block">Miqdor</label>
+            <div class="flex items-center bg-ink-50 rounded-xl overflow-hidden w-fit">
+              <button @click="qty = Math.max(1, qty-1)" class="w-12 h-12 hover:bg-ink-100 font-bold">−</button>
+              <input v-model.number="qty" type="number" min="1" class="w-16 h-12 text-center bg-transparent font-semibold">
+              <button @click="qty++" class="w-12 h-12 hover:bg-ink-100 font-bold">+</button>
+            </div>
+          </div>
+
+          <div class="flex gap-3 mb-8">
+            <button @click="addToCart(selectedProduct, qty)" class="btn-primary flex-1 text-white py-4 rounded-2xl font-semibold flex items-center justify-center gap-2 shine">
+              <i class="fas fa-shopping-bag"></i>Savatga qo'shish
+            </button>
+            <button @click="toggleWishlist(selectedProduct)" class="w-14 h-14 bg-white border-2 border-ink-200 rounded-2xl hover:border-red-400 flex items-center justify-center">
+              <i :class="['fas fa-heart', isInWishlist(selectedProduct.id) ? 'text-red-500' : 'text-ink-400']"></i>
+            </button>
+          </div>
+
+          <div class="space-y-3">
+            <div class="flex items-center gap-3 p-4 bg-white rounded-2xl border border-ink-100">
+              <div class="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><i class="fas fa-truck text-brand-600"></i></div>
+              <span class="text-sm font-medium">Yetkazib berish: 1-3 kun</span>
+            </div>
+            <div class="flex items-center gap-3 p-4 bg-white rounded-2xl border border-ink-100">
+              <div class="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><i class="fas fa-undo text-brand-600"></i></div>
+              <span class="text-sm font-medium">10 kun ichida qaytarish</span>
+            </div>
+            <div class="flex items-center gap-3 p-4 bg-white rounded-2xl border border-ink-100">
+              <div class="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center"><i class="fas fa-shield-alt text-brand-600"></i></div>
+              <span class="text-sm font-medium">Rasmiy kafolat</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- WISHLIST -->
+    <main v-else-if="currentView==='wishlist'" class="max-w-7xl mx-auto px-4 lg:px-6 py-8 fade-in">
+      <h1 class="font-display text-3xl font-bold mb-8">Sevimlilar <span class="text-ink-400">({{ wishlist.length }})</span></h1>
+      <div v-if="wishlist.length===0" class="bg-white rounded-3xl p-16 text-center border border-dashed border-ink-200">
+        <i class="fas fa-heart text-5xl text-red-200 mb-4"></i>
+        <p class="text-ink-500 mb-4">Sevimlilar bo'sh</p>
+        <button @click="navigate('catalog')" class="btn-primary text-white px-6 py-3 rounded-xl font-semibold">Xarid qilish</button>
+      </div>
+      <div v-else class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+        <div v-for="p in wishlist" :key="p.id" class="bg-white rounded-2xl overflow-hidden card-hover cursor-pointer border border-ink-100" @click="openProduct(p)">
+          <div class="aspect-square">
+            <img :src="p.images?.[0] || placeholderImg" class="w-full h-full object-cover">
+          </div>
+          <div class="p-4">
+            <h3 class="text-sm font-semibold line-clamp-2 h-10 mb-2.5">{{ p.name }}</h3>
+            <div class="font-display font-bold text-ink-900">{{ formatPrice(p.price) }}</div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- PROFILE / ORDERS / ADDRESSES -->
+    <main v-else-if="['profile','orders','addresses'].includes(currentView)" class="max-w-7xl mx-auto px-4 lg:px-6 py-8 fade-in">
+      <h1 class="font-display text-3xl font-bold mb-8">Shaxsiy kabinet</h1>
+      <div class="grid md:grid-cols-4 gap-6">
+        <aside class="bg-white rounded-2xl border border-ink-100 p-6 text-center">
+          <div v-if="user" class="w-20 h-20 bg-gradient-to-br from-brand-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white text-2xl font-bold">
+            {{ user.name.charAt(0).toUpperCase() }}
+          </div>
+          <h2 class="font-semibold text-ink-900">{{ user?.name }}</h2>
+          <p class="text-sm text-ink-500 mt-1">{{ user?.email }}</p>
+          <div class="mt-5 space-y-1">
+            <button @click="navigate('profile')" :class="['w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition', currentView==='profile' ? 'bg-brand-50 text-brand-700' : 'hover:bg-ink-50 text-ink-600']">
+              <i class="fas fa-user w-4 mr-2"></i>Profil
+            </button>
+            <button @click="navigate('orders')" :class="['w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition', currentView==='orders' ? 'bg-brand-50 text-brand-700' : 'hover:bg-ink-50 text-ink-600']">
+              <i class="fas fa-box w-4 mr-2"></i>Buyurtmalar
+            </button>
+            <button @click="navigate('addresses')" :class="['w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition', currentView==='addresses' ? 'bg-brand-50 text-brand-700' : 'hover:bg-ink-50 text-ink-600']">
+              <i class="fas fa-map-marker-alt w-4 mr-2"></i>Manzillar
+            </button>
+          </div>
+        </aside>
+
+        <div class="md:col-span-3">
+          <div v-if="currentView==='orders'" class="space-y-3">
+            <div v-if="orders.length===0" class="bg-white rounded-2xl p-12 text-center border border-dashed border-ink-200">
+              <i class="fas fa-box-open text-3xl text-ink-300 mb-3"></i>
+              <p class="text-ink-500 mb-4">Buyurtmalar yo'q</p>
+              <button @click="navigate('catalog')" class="btn-primary text-white px-6 py-2.5 rounded-xl font-semibold">Xarid qilish</button>
+            </div>
+            <div v-else v-for="o in orders" :key="o.id" class="bg-white rounded-2xl p-5 border border-ink-100">
+              <div class="flex justify-between mb-3 flex-wrap gap-2">
+                <div>
+                  <div class="font-display font-bold">#{{ o.order_number }}</div>
+                  <div class="text-sm text-ink-500">{{ formatDate(o.created_at) }}</div>
+                </div>
+                <span :class="['pill', statusClass(o.status)]">{{ statusLabel(o.status) }}</span>
+              </div>
+              <div class="font-display font-bold text-brand-600 text-lg mb-3">{{ formatPrice(o.total) }}</div>
+              <div class="text-sm text-ink-500">{{ o.delivery_address }}</div>
+            </div>
+          </div>
+
+          <div v-else-if="currentView==='addresses'">
+            <button @click="openAddressModal" class="btn-primary text-white px-5 py-3 rounded-xl font-semibold mb-5">
+              <i class="fas fa-plus mr-2"></i>Yangi manzil
+            </button>
+            <div class="space-y-3">
+              <div v-if="addresses.length===0" class="bg-white rounded-2xl p-12 text-center border border-dashed border-ink-200">
+                <i class="fas fa-map-marker-alt text-3xl text-ink-300 mb-3"></i>
+                <p class="text-ink-500">Manzillar yo'q</p>
+              </div>
+              <div v-else v-for="a in addresses" :key="a.id" class="bg-white rounded-2xl p-5 border border-ink-100">
+                <div class="flex justify-between items-start">
+                  <div>
+                    <div class="font-semibold flex items-center gap-2">
+                      {{ a.title }}
+                      <span v-if="a.is_default" class="pill bg-brand-50 text-brand-700">Asosiy</span>
+                    </div>
+                    <div class="text-sm text-ink-500 mt-1">{{ a.region }}, {{ a.district }}, {{ a.street }}</div>
+                    <div class="text-sm text-ink-500">{{ a.phone }}</div>
+                  </div>
+                  <button @click="deleteAddress(a)" class="w-9 h-9 text-red-500 hover:bg-red-50 rounded-lg">
+                    <i class="fas fa-trash text-sm"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="bg-white rounded-2xl p-8 border border-ink-100">
+            <h3 class="font-display font-bold text-lg mb-6">Profil ma'lumotlari</h3>
+            <div class="space-y-5 max-w-md">
+              <div>
+                <label class="text-xs font-semibold text-ink-500 uppercase tracking-wider mb-2 block">Ism</label>
+                <input v-model="profileForm.name" class="w-full px-4 py-3 bg-ink-50 rounded-xl font-medium focus:bg-white focus:border-brand-500 border-2 border-transparent transition">
+              </div>
+              <div>
+                <label class="text-xs font-semibold text-ink-500 uppercase tracking-wider mb-2 block">Email</label>
+                <input :value="user?.email" disabled class="w-full px-4 py-3 bg-ink-100 rounded-xl font-medium text-ink-500 cursor-not-allowed">
+              </div>
+              <div>
+                <label class="text-xs font-semibold text-ink-500 uppercase tracking-wider mb-2 block">Telefon</label>
+                <input v-model="profileForm.phone" placeholder="+998 90 123 45 67" class="w-full px-4 py-3 bg-ink-50 rounded-xl font-medium focus:bg-white focus:border-brand-500 border-2 border-transparent transition">
+              </div>
+              <button @click="saveProfile" class="btn-primary text-white px-6 py-3 rounded-xl font-semibold">
+                <i class="fas fa-save mr-2"></i>Saqlash
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- CART -->
+    <transition name="fade">
+      <div v-if="cartOpen" class="fixed inset-0 bg-ink-900/60 backdrop-blur-sm z-50" @click.self="cartOpen=false">
+        <transition name="slide">
+          <div class="absolute right-0 top-0 h-full w-full max-w-md bg-white flex flex-col shadow-2xl">
+            <div class="p-5 border-b flex justify-between items-center">
+              <div>
+                <div class="text-xs font-semibold text-brand-600 uppercase">Savat</div>
+                <h2 class="font-display font-bold text-xl">{{ cartCount }} ta mahsulot</h2>
+              </div>
+              <button @click="cartOpen=false" class="w-10 h-10 hover:bg-ink-100 rounded-xl"><i class="fas fa-times"></i></button>
+            </div>
+
+            <div v-if="cart.length===0" class="flex-1 flex flex-col items-center justify-center p-8">
+              <i class="fas fa-shopping-bag text-5xl text-ink-300 mb-4"></i>
+              <p class="text-ink-500 mb-4">Savat bo'sh</p>
+              <button @click="cartOpen=false; navigate('catalog')" class="text-brand-600 font-semibold hover:underline">Xarid qilish</button>
+            </div>
+
+            <div v-else class="flex-1 overflow-y-auto p-5 space-y-4">
+              <div v-for="item in cart" :key="item.id" class="flex gap-3 pb-4 border-b border-ink-100 last:border-0">
+                <img :src="item.images?.[0] || placeholderImg" class="w-20 h-20 rounded-xl object-cover">
+                <div class="flex-1">
+                  <div class="text-sm font-semibold line-clamp-2 mb-1">{{ item.name }}</div>
+                  <div class="font-display font-bold text-brand-600 mb-2">{{ formatPrice(item.price) }}</div>
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center bg-ink-50 rounded-lg">
+                      <button @click="changeQty(item,-1)" class="w-8 h-8 font-bold">−</button>
+                      <span class="w-9 text-center text-sm font-semibold">{{ item.qty }}</span>
+                      <button @click="changeQty(item,1)" class="w-8 h-8 font-bold">+</button>
+                    </div>
+                    <button @click="removeFromCart(item)" class="w-8 h-8 text-red-500 hover:bg-red-50 rounded-lg">
+                      <i class="fas fa-trash text-sm"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="cart.length>0" class="border-t p-5">
+              <div class="flex justify-between font-display font-bold text-2xl mb-4">
+                <span>Jami:</span>
+                <span class="gradient-text">{{ formatPrice(cartTotal) }}</span>
+              </div>
+              <button @click="checkout" class="btn-primary w-full text-white py-4 rounded-2xl font-semibold">
+                Buyurtma berish <i class="fas fa-arrow-right ml-2"></i>
+              </button>
+            </div>
+          </div>
+        </transition>
+      </div>
+    </transition>
+
+    <!-- CHECKOUT -->
+    <transition name="fade">
+      <div v-if="checkoutOpen" class="fixed inset-0 bg-ink-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="checkoutOpen=false">
+        <div class="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div class="p-5 border-b flex justify-between items-center sticky top-0 bg-white z-10">
+            <h2 class="font-display font-bold text-xl">Buyurtma berish</h2>
+            <button @click="checkoutOpen=false" class="w-10 h-10 hover:bg-ink-100 rounded-xl"><i class="fas fa-times"></i></button>
+          </div>
+          <div class="p-6 space-y-4">
+            <input v-model="checkoutForm.name" placeholder="Ism *" class="w-full px-4 py-3 bg-ink-50 rounded-xl">
+            <input v-model="checkoutForm.phone" placeholder="Telefon *" class="w-full px-4 py-3 bg-ink-50 rounded-xl">
+            <select v-model="checkoutForm.region" class="w-full px-4 py-3 bg-ink-50 rounded-xl">
+              <option value="">Viloyatni tanlang</option>
+              <option v-for="r in regions" :key="r" :value="r">{{ r }}</option>
+            </select>
+            <input v-model="checkoutForm.address" placeholder="Ko'cha, uy raqami *" class="w-full px-4 py-3 bg-ink-50 rounded-xl">
+            <textarea v-model="checkoutForm.comment" placeholder="Izoh (ixtiyoriy)" rows="2" class="w-full px-4 py-3 bg-ink-50 rounded-xl"></textarea>
+
+            <div class="space-y-2">
+              <label v-for="pm in paymentMethods" :key="pm.id"
+                     class="flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition"
+                     :class="checkoutForm.payment===pm.id ? 'border-brand-500 bg-brand-50' : 'border-ink-200'">
+                <input type="radio" :value="pm.id" v-model="checkoutForm.payment" class="hidden">
+                <i :class="pm.icon" class="text-xl"></i>
+                <span class="font-medium">{{ pm.name }}</span>
+              </label>
+            </div>
+
+            <div class="bg-ink-50 rounded-xl p-4">
+              <div class="flex justify-between font-display font-bold text-xl">
+                <span>Jami:</span>
+                <span class="gradient-text">{{ formatPrice(cartTotal) }}</span>
+              </div>
+            </div>
+
+            <button @click="confirmOrder" :disabled="submitting" class="btn-primary w-full text-white py-4 rounded-2xl font-semibold">
+              <span v-if="submitting"><i class="fas fa-spinner fa-spin mr-2"></i>Yuborilmoqda...</span>
+              <span v-else><i class="fas fa-check mr-2"></i>Buyurtmani tasdiqlash</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <!-- ORDER SUCCESS -->
+    <transition name="fade">
+      <div v-if="orderSuccess" class="fixed inset-0 bg-ink-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-10 text-center">
+          <div class="w-24 h-24 bg-gradient-to-br from-green-400 to-emerald-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl">
+            <i class="fas fa-check text-5xl text-white"></i>
+          </div>
+          <h2 class="font-display text-2xl font-bold mb-2">Buyurtma qabul qilindi!</h2>
+          <p class="text-ink-500 mb-1">Buyurtma raqami</p>
+          <p class="font-display font-bold text-2xl gradient-text mb-6">#{{ lastOrderId }}</p>
+          <div class="flex gap-3">
+            <button @click="orderSuccess=false; navigate('home')" class="flex-1 border-2 border-ink-200 py-3 rounded-xl font-semibold">Bosh sahifa</button>
+            <button @click="orderSuccess=false; navigate('orders')" class="btn-primary flex-1 text-white py-3 rounded-xl font-semibold">Buyurtmalarim</button>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <!-- AUTH -->
+    <transition name="fade">
+      <div v-if="authOpen" class="fixed inset-0 bg-ink-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="authOpen=false">
+        <div class="bg-white rounded-3xl max-w-md w-full p-8 relative">
+          <button @click="authOpen=false" class="absolute top-4 right-4 w-10 h-10 hover:bg-ink-100 rounded-xl">
+            <i class="fas fa-times"></i>
+          </button>
+
+          <div class="text-center mb-8">
+            <div class="w-16 h-16 bg-gradient-to-br from-brand-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <i class="fas fa-shopping-bag text-white text-2xl"></i>
+            </div>
+            <h2 class="font-display text-2xl font-bold text-ink-900">
+              {{ authMode === 'login' ? 'Xush kelibsiz!' : 'Ro\'yxatdan o\'tish' }}
+            </h2>
+          </div>
+
+          <div class="flex gap-2 mb-6 bg-ink-100 p-1 rounded-xl">
+            <button @click="authMode='login'; authError=''" type="button"
+              :class="['flex-1 py-2.5 rounded-lg text-sm font-semibold transition', authMode==='login' ? 'bg-white shadow-sm' : 'text-ink-500']">
+              Kirish
+            </button>
+            <button @click="authMode='register'; authError=''" type="button"
+              :class="['flex-1 py-2.5 rounded-lg text-sm font-semibold transition', authMode==='register' ? 'bg-white shadow-sm' : 'text-ink-500']">
+              Ro'yxatdan o'tish
+            </button>
+          </div>
+
+          <form @submit.prevent="submitAuth" class="space-y-4">
+            <div v-if="authMode === 'register'">
+              <label class="text-xs font-semibold text-ink-500 uppercase tracking-wider mb-2 block">Ism</label>
+              <input v-model="authForm.name" type="text" placeholder="Ism va familiya" required
+                     class="w-full px-4 py-3.5 bg-ink-50 border-2 border-transparent rounded-xl font-medium focus:bg-white focus:border-brand-500 transition">
+            </div>
+
+            <div>
+              <label class="text-xs font-semibold text-ink-500 uppercase tracking-wider mb-2 block">Email</label>
+              <input v-model="authForm.email" type="email" placeholder="example@gmail.com" required
+                     class="w-full px-4 py-3.5 bg-ink-50 border-2 border-transparent rounded-xl font-medium focus:bg-white focus:border-brand-500 transition">
+            </div>
+
+            <div>
+              <label class="text-xs font-semibold text-ink-500 uppercase tracking-wider mb-2 block">Parol</label>
+              <div class="relative">
+                <input v-model="authForm.password" :type="showPassword ? 'text' : 'password'" placeholder="Kamida 6 belgi" required minlength="6"
+                       class="w-full px-4 py-3.5 pr-12 bg-ink-50 border-2 border-transparent rounded-xl font-medium focus:bg-white focus:border-brand-500 transition">
+                <button type="button" @click="showPassword=!showPassword"
+                        class="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 hover:bg-ink-100 rounded-lg flex items-center justify-center text-ink-400">
+                  <i :class="showPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+                </button>
+              </div>
+            </div>
+
+            <button type="submit" :disabled="authLoading"
+                    class="btn-primary w-full text-white py-4 rounded-2xl font-semibold flex items-center justify-center gap-2 shine">
+              <span v-if="!authLoading">
+                <i :class="authMode==='login' ? 'fas fa-sign-in-alt' : 'fas fa-user-plus'" class="mr-2"></i>
+                {{ authMode==='login' ? 'Kirish' : 'Ro\'yxatdan o\'tish' }}
+              </span>
+              <span v-else><i class="fas fa-spinner fa-spin mr-2"></i>Yuklanmoqda...</span>
+            </button>
+
+            <div v-if="authError" class="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-start gap-2">
+              <i class="fas fa-exclamation-circle mt-0.5"></i>
+              <span>{{ authError }}</span>
+            </div>
+          </form>
+        </div>
+      </div>
+    </transition>
+
+    <!-- ADDRESS MODAL -->
+    <transition name="fade">
+      <div v-if="addressModalOpen" class="fixed inset-0 bg-ink-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="addressModalOpen=false">
+        <div class="bg-white rounded-3xl max-w-md w-full p-8">
+          <h2 class="font-display text-xl font-bold mb-6">Yangi manzil</h2>
+          <div class="space-y-4">
+            <input v-model="addressForm.title" placeholder="Nomi (Uy, Ish)" class="w-full px-4 py-3 bg-ink-50 rounded-xl">
+            <select v-model="addressForm.region" class="w-full px-4 py-3 bg-ink-50 rounded-xl">
+              <option value="">Viloyat</option>
+              <option v-for="r in regions" :key="r" :value="r">{{ r }}</option>
+            </select>
+            <input v-model="addressForm.district" placeholder="Tuman" class="w-full px-4 py-3 bg-ink-50 rounded-xl">
+            <input v-model="addressForm.street" placeholder="Ko'cha, uy" class="w-full px-4 py-3 bg-ink-50 rounded-xl">
+            <input v-model="addressForm.phone" placeholder="Telefon" class="w-full px-4 py-3 bg-ink-50 rounded-xl">
+            <label class="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" v-model="addressForm.isDefault" class="w-4 h-4 rounded text-brand-600">
+              <span class="font-medium">Asosiy manzil</span>
+            </label>
+            <div class="flex gap-3 pt-2">
+              <button @click="addressModalOpen=false" class="flex-1 border-2 border-ink-200 py-3 rounded-xl font-semibold">Bekor</button>
+              <button @click="saveAddress" class="btn-primary flex-1 text-white py-3 rounded-xl font-semibold">Saqlash</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <!-- TOAST -->
+    <transition name="fade">
+      <div v-if="toast.show" class="fixed bottom-6 right-6 bg-ink-900 text-white px-6 py-4 rounded-2xl shadow-2xl z-[60] flex items-center gap-3 max-w-sm">
+        <i :class="toast.icon"></i>
+        <span class="font-medium">{{ toast.message }}</span>
+      </div>
+    </transition>
+
+    <!-- FOOTER -->
+    <footer class="bg-ink-900 text-white mt-16">
+      <div class="max-w-7xl mx-auto px-4 lg:px-6 py-12">
+        <div class="grid md:grid-cols-4 gap-8">
+          <div class="md:col-span-2">
+            <div class="flex items-center gap-2.5 mb-4">
+              <div class="w-10 h-10 bg-gradient-to-br from-brand-500 to-purple-600 rounded-xl flex items-center justify-center">
+                <i class="fas fa-shopping-bag text-white"></i>
+              </div>
+              <div>
+                <div class="font-display font-bold text-lg">BozorUz</div>
+                <div class="text-[10px] opacity-60 tracking-wider uppercase">Marketplace</div>
+              </div>
+            </div>
+            <p class="text-white/60 text-sm">O'zbekistondagi zamonaviy onlayn marketplace</p>
+          </div>
+          <div>
+            <h4 class="font-semibold mb-4 text-sm uppercase tracking-wider text-white/90">Kompaniya</h4>
+            <ul class="space-y-2 text-sm text-white/60">
+              <li><a href="#" class="hover:text-white transition">Biz haqimizda</a></li>
+              <li><a href="#" class="hover:text-white transition">Aloqa</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="font-semibold mb-4 text-sm uppercase tracking-wider text-white/90">Aloqa</h4>
+            <div class="text-sm text-white/60 space-y-2">
+              <div><i class="fas fa-phone text-brand-400 mr-2"></i>+998 71 200 00 00</div>
+              <div><i class="fas fa-envelope text-brand-400 mr-2"></i>info@bozoruz.uz</div>
+            </div>
+          </div>
+        </div>
+        <div class="border-t border-white/10 mt-8 pt-6 text-center text-sm text-white/50">
+          © 2024 BozorUz. Barcha huquqlar himoyalangan.
+        </div>
+      </div>
+    </footer>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// ⚠️ FAQAT SHU QATORNI O'ZGARTIRING!
+// Render Dashboard'dagi URL'ni qo'ying
+// ═══════════════════════════════════════════════════════════
+const API_URL = 'https://bozoruz-1.onrender.com/api';
+// ═══════════════════════════════════════════════════════════
+
+const { createApp, ref, computed, watch, onMounted } = Vue;
+
+createApp({
+  setup() {
+    const load = (key, def) => { 
+      try { 
+        const v = localStorage.getItem(key); 
+        return v ? JSON.parse(v) : def; 
+      } catch { return def; } 
+    };
+    const save = (key, val) => { 
+      try { localStorage.setItem(key, JSON.stringify(val)); } catch {} 
+    };
+
+    // STATE
+    const currentView = ref('home');
+    const searchQuery = ref('');
+    const selectedCategory = ref('all');
+    const selectedProduct = ref(null);
+    const cartOpen = ref(false);
+    const checkoutOpen = ref(false);
+    const qty = ref(1);
+    const sortBy = ref('popular');
+    const userMenuOpen = ref(false);
+    const isLoading = ref(true);
+    const submitting = ref(false);
+    const authOpen = ref(false);
+    const authMode = ref('login');
+    const authLoading = ref(false);
+    const authError = ref('');
+    const showPassword = ref(false);
+    const orderSuccess = ref(false);
+    const lastOrderId = ref('');
+    const addressModalOpen = ref(false);
+    const toast = ref({ show: false, message: '', icon: '' });
+    const apiError = ref('');
+
+    // DATA
+    const user = ref(null);
+    const categories = ref([]);
+    const products = ref([]);
+    const orders = ref([]);
+    const addresses = ref([]);
+    const cart = ref(load('bz_cart', []));
+    const wishlist = ref(load('bz_wish', []));
+
+    const filters = ref({ minPrice: null, maxPrice: null, inStock: false });
+    const authForm = ref({ name: '', email: '', password: '' });
+    const checkoutForm = ref({ name: '', phone: '', region: '', address: '', comment: '', payment: 'cash' });
+    const addressForm = ref({ title: '', region: '', district: '', street: '', phone: '', isDefault: false });
+    const profileForm = ref({ name: '', phone: '' });
+
+    const placeholderImg = 'https://via.placeholder.com/400x400/f1f5f9/94a3b8?text=Rasm+yo%27q';
+    
+    const regions = [
+      'Toshkent', 'Samarqand', 'Buxoro', 'Andijon', 'Farg\'ona', 'Namangan',
+      'Qashqadaryo', 'Surxondaryo', 'Xorazm', 'Navoiy', 'Jizzax', 'Sirdaryo', 'Qoraqalpog\'iston'
+    ];
+    
+    const paymentMethods = [
+      { id: 'payme', name: 'Payme', icon: 'fas fa-credit-card text-blue-500' },
+      { id: 'click', name: 'Click', icon: 'fas fa-mobile-alt text-green-500' },
+      { id: 'uzcard', name: 'Uzcard / Humo', icon: 'fas fa-credit-card text-orange-500' },
+      { id: 'cash', name: 'Naqd pul', icon: 'fas fa-money-bill text-gray-600' },
+    ];
+
+    // COMPUTED
+    const cartCount = computed(() => cart.value.reduce((s, i) => s + i.qty, 0));
+    const cartTotal = computed(() => cart.value.reduce((s, i) => s + i.price * i.qty, 0));
+
+    const filteredProducts = computed(() => {
+      let list = [...products.value];
+      if (selectedCategory.value !== 'all') {
+        list = list.filter(p => p.category_id === selectedCategory.value);
+      }
+      if (searchQuery.value.trim()) {
+        const q = searchQuery.value.toLowerCase().trim();
+        list = list.filter(p => 
+          p.name.toLowerCase().includes(q) || 
+          (p.brand && p.brand.toLowerCase().includes(q))
+        );
+      }
+      if (filters.value.minPrice) list = list.filter(p => p.price >= filters.value.minPrice);
+      if (filters.value.maxPrice) list = list.filter(p => p.price <= filters.value.maxPrice);
+      if (filters.value.inStock) list = list.filter(p => (p.stock || 0) > 0);
+      return list;
+    });
+
+    // HELPERS
+    const formatPrice = v => new Intl.NumberFormat('uz-UZ').format(v) + ' so\'m';
+    
+    const formatDate = d => {
+      if (!d) return '';
+      const date = new Date(d);
+      return date.toLocaleDateString('uz-UZ', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    };
+    
+    const statusLabel = s => ({
+      'pending': 'Qabul qilindi',
+      'confirmed': 'Tasdiqlandi',
+      'shipping': 'Yo\'lda',
+      'delivered': 'Yetkazildi',
+      'cancelled': 'Bekor qilindi',
+    }[s] || s);
+    
+    const statusClass = s => ({
+      'pending': 'bg-yellow-100 text-yellow-700',
+      'confirmed': 'bg-blue-100 text-blue-700',
+      'shipping': 'bg-purple-100 text-purple-700',
+      'delivered': 'bg-green-100 text-green-700',
+      'cancelled': 'bg-red-100 text-red-700',
+    }[s] || 'bg-gray-100 text-gray-700');
+
+    const showToast = (message, icon = 'fas fa-check-circle text-green-400') => {
+      toast.value = { show: true, message, icon };
+      setTimeout(() => toast.value.show = false, 2500);
+    };
+
+    // API
+    const apiFetch = async (path, options = {}) => {
+      const token = localStorage.getItem('bz_token');
+      const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      
+      let res;
+      try {
+        res = await fetch(`${API_URL}${path}`, { ...options, headers });
+      } catch (err) {
+        throw new Error('Server bilan aloqa yo\'q. Internetni tekshiring.');
+      }
+      
+      if (!res.ok) {
+        if (res.status === 401) {
+          localStorage.removeItem('bz_token');
+          localStorage.removeItem('bz_user');
+          user.value = null;
+        }
+        let errMsg = 'Xatolik yuz berdi';
+        try {
+          const err = await res.json();
+          errMsg = err.error || errMsg;
+        } catch {}
+        throw new Error(errMsg);
+      }
+      
+      return res.json();
+    };
+
+    // AUTH
+    const openAuth = (mode = 'login') => {
+      authMode.value = mode;
+      authError.value = '';
+      authForm.value = { name: '', email: '', password: '' };
+      authOpen.value = true;
+    };
+
+    const submitAuth = async () => {
+      authLoading.value = true;
+      authError.value = '';
+
+      try {
+        const endpoint = authMode.value === 'login' ? '/auth/login' : '/auth/signup';
+        const body = authMode.value === 'login' 
+          ? { email: authForm.value.email, password: authForm.value.password }
+          : { email: authForm.value.email, password: authForm.value.password, name: authForm.value.name };
+
+        const res = await fetch(`${API_URL}${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+
+        const data = await res.json();
+        
+        if (!res.ok) throw new Error(data.error || 'Kirishda xatolik');
+
+        if (data.session) {
+          localStorage.setItem('bz_token', data.session.access_token);
+          localStorage.setItem('bz_user', JSON.stringify(data.user));
+          
+          user.value = data.user;
+          profileForm.value.name = data.user.name || '';
+          profileForm.value.phone = data.user.phone || '';
+          
+          authOpen.value = false;
+          showToast(`${authMode.value === 'login' ? 'Xush kelibsiz' : 'Muvaffaqiyatli'}, ${data.user.name}!`);
+          
+          await Promise.all([loadOrders(), loadAddresses()]);
+        } else {
+          authError.value = 'Email\'ingizni tasdiqlang';
+        }
+      } catch (e) {
+        authError.value = e.message;
+      } finally {
+        authLoading.value = false;
+      }
+    };
+
+    const logout = async () => {
+      try { await apiFetch('/auth/logout', { method: 'POST' }); } catch {}
+      
+      localStorage.removeItem('bz_token');
+      localStorage.removeItem('bz_user');
+      
+      user.value = null;
+      orders.value = [];
+      addresses.value = [];
+      userMenuOpen.value = false;
+      
+      showToast('Tizimdan chiqdingiz', 'fas fa-sign-out-alt text-blue-400');
+    };
+
+    const saveProfile = async () => {
+      try {
+        await apiFetch('/auth/me', {
+          method: 'PATCH',
+          body: JSON.stringify({ name: profileForm.value.name, phone: profileForm.value.phone }),
+        });
+        
+        user.value.name = profileForm.value.name;
+        user.value.phone = profileForm.value.phone;
+        showToast('Profil saqlandi');
+      } catch (e) {
+        showToast(e.message, 'fas fa-times-circle text-red-400');
+      }
+    };
+
+    // NAVIGATE
+    const navigate = (view) => {
+      currentView.value = view;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // CART
+    const addToCart = (product, quantity = 1) => {
+      const existing = cart.value.find(i => i.id === product.id);
+      if (existing) existing.qty += quantity;
+      else cart.value.push({ ...product, qty: quantity });
+      showToast('Savatga qo\'shildi', 'fas fa-cart-plus text-green-400');
+    };
+
+    const removeFromCart = item => { cart.value = cart.value.filter(i => i.id !== item.id); };
+    const changeQty = (item, delta) => { item.qty = Math.max(1, item.qty + delta); };
+    const isInWishlist = id => wishlist.value.some(p => p.id === id);
+    
+    const toggleWishlist = product => {
+      const i = wishlist.value.findIndex(x => x.id === product.id);
+      if (i > -1) {
+        wishlist.value.splice(i, 1);
+        showToast('Sevimlilardan olib tashlandi', 'fas fa-heart-broken text-red-400');
+      } else {
+        wishlist.value.push(product);
+        showToast('Sevimlilarga qo\'shildi', 'fas fa-heart text-red-400');
+      }
+    };
+
+    const resetFilters = () => {
+      filters.value = { minPrice: null, maxPrice: null, inStock: false };
+      searchQuery.value = '';
+    };
+
+    // PRODUCTS
+    const openProduct = async (p) => {
+      try {
+        selectedProduct.value = await apiFetch(`/products/${p.id}`);
+      } catch {
+        selectedProduct.value = p;
+      }
+      qty.value = 1;
+      navigate('product');
+    };
+
+    const doSearch = () => {
+      selectedCategory.value = 'all';
+      navigate('catalog');
+    };
+
+    // CHECKOUT
+    const checkout = () => {
+      if (!user.value) {
+        cartOpen.value = false;
+        openAuth('login');
+        showToast('Buyurtma berish uchun tizimga kiring', 'fas fa-info-circle text-blue-400');
+        return;
+      }
+      
+      if (cart.value.length === 0) return;
+      
+      cartOpen.value = false;
+      checkoutForm.value.name = user.value.name || '';
+      checkoutForm.value.phone = user.value.phone || '';
+      checkoutForm.value.region = '';
+      checkoutForm.value.address = '';
+      checkoutForm.value.comment = '';
+      checkoutForm.value.payment = 'cash';
+      checkoutOpen.value = true;
+    };
+
+    const confirmOrder = async () => {
+      if (!checkoutForm.value.name || !checkoutForm.value.phone || 
+          !checkoutForm.value.region || !checkoutForm.value.address) {
+        showToast('Majburiy maydonlarni to\'ldiring', 'fas fa-exclamation-circle text-yellow-400');
+        return;
+      }
+      
+      submitting.value = true;
+      
+      try {
+        const order = await apiFetch('/orders', {
+          method: 'POST',
+          body: JSON.stringify({
+            items: cart.value.map(i => ({ id: i.id, name: i.name, qty: i.qty, price: i.price })),
+            address: `${checkoutForm.value.region}, ${checkoutForm.value.address}`,
+            phone: checkoutForm.value.phone,
+            payment_method: checkoutForm.value.payment,
+            comment: checkoutForm.value.comment,
+            total: cartTotal.value,
+          }),
+        });
+        
+        lastOrderId.value = order.order_number;
+        cart.value = [];
+        checkoutOpen.value = false;
+        orderSuccess.value = true;
+        
+        await loadOrders();
+      } catch (e) {
+        showToast(e.message, 'fas fa-times-circle text-red-400');
+      } finally {
+        submitting.value = false;
+      }
+    };
+
+    // ADDRESSES
+    const openAddressModal = () => {
+      addressForm.value = { title: '', region: '', district: '', street: '', phone: '', isDefault: false };
+      addressModalOpen.value = true;
+    };
+
+    const saveAddress = async () => {
+      if (!addressForm.value.title || !addressForm.value.region || !addressForm.value.street) {
+        showToast('Majburiy maydonlarni to\'ldiring', 'fas fa-exclamation-circle text-yellow-400');
+        return;
+      }
+      
+      try {
+        await apiFetch('/addresses', {
+          method: 'POST',
+          body: JSON.stringify(addressForm.value),
+        });
+        
+        addressModalOpen.value = false;
+        await loadAddresses();
+        showToast('Manzil saqlandi');
+      } catch (e) {
+        showToast(e.message, 'fas fa-times-circle text-red-400');
+      }
+    };
+
+    const deleteAddress = async (a) => {
+      if (!confirm('Manzilni o\'chirmoqchimisiz?')) return;
+      
+      try {
+        await apiFetch(`/addresses/${a.id}`, { method: 'DELETE' });
+        await loadAddresses();
+        showToast('Manzil o\'chirildi');
+      } catch (e) {
+        showToast(e.message, 'fas fa-times-circle text-red-400');
+      }
+    };
+
+    // LOAD DATA
+    const loadCategories = async () => {
+      try { 
+        const data = await apiFetch('/categories');
+        categories.value = Array.isArray(data) ? data : [];
+      } catch (e) { 
+        console.error('Categories xatosi:', e); 
+        categories.value = [];
+      }
+    };
+
+    const loadProducts = async () => {
+      try {
+        const data = await apiFetch('/products?limit=100');
+        products.value = data.products || [];
+      } catch (e) { 
+        console.error('Products xatosi:', e); 
+        products.value = [];
+      }
+    };
+
+    const loadOrders = async () => {
+      if (!user.value) return;
+      try { 
+        const data = await apiFetch('/orders');
+        orders.value = Array.isArray(data) ? data : [];
+      } catch (e) { 
+        orders.value = [];
+      }
+    };
+
+    const loadAddresses = async () => {
+      if (!user.value) return;
+      try { 
+        const data = await apiFetch('/addresses');
+        addresses.value = Array.isArray(data) ? data : [];
+      } catch (e) { 
+        addresses.value = [];
+      }
+    };
+
+    // RETRY CONNECTION
+    const retryConnection = async () => {
+      apiError.value = '';
+      isLoading.value = true;
+      try {
+        await apiFetch('/health');
+        await Promise.all([loadCategories(), loadProducts()]);
+      } catch (e) {
+        apiError.value = e.message;
+      } finally {
+        isLoading.value = false;
+      }
+    };
+
+    // WATCHERS
+    watch(cart, v => save('bz_cart', v), { deep: true });
+    watch(wishlist, v => save('bz_wish', v), { deep: true });
+
+    // INIT
+    onMounted(async () => {
+      // Health check
+      try {
+        await apiFetch('/health');
+      } catch (e) {
+        apiError.value = e.message;
+        isLoading.value = false;
+        return;
+      }
+
+      // Session
+      const token = localStorage.getItem('bz_token');
+      const savedUser = localStorage.getItem('bz_user');
+      
+      if (token && savedUser) {
+        try {
+          user.value = JSON.parse(savedUser);
+          profileForm.value.name = user.value.name || '';
+          profileForm.value.phone = user.value.phone || '';
+          
+          const me = await apiFetch('/auth/me');
+          if (me?.profile) {
+            user.value = { ...user.value, ...me.profile };
+            profileForm.value.name = user.value.name || '';
+            profileForm.value.phone = user.value.phone || '';
+          }
+        } catch (e) {
+          localStorage.removeItem('bz_token');
+          localStorage.removeItem('bz_user');
+          user.value = null;
+        }
+      }
+
+      await Promise.all([loadCategories(), loadProducts()]);
+      
+      if (user.value) {
+        await Promise.all([loadOrders(), loadAddresses()]);
+      }
+
+      setTimeout(() => isLoading.value = false, 300);
+    });
+
+    return {
+      API_URL,
+      currentView, searchQuery, selectedCategory, selectedProduct,
+      cartOpen, checkoutOpen, qty, sortBy, userMenuOpen,
+      isLoading, submitting, authOpen, authMode, authLoading, authError,
+      showPassword, orderSuccess, lastOrderId, addressModalOpen, toast, apiError,
+      user, categories, products, orders, addresses, cart, wishlist,
+      filters, authForm, checkoutForm, addressForm, profileForm,
+      regions, paymentMethods, placeholderImg,
+      cartCount, cartTotal, filteredProducts,
+      formatPrice, formatDate, statusLabel, statusClass,
+      openAuth, submitAuth, logout, saveProfile, navigate,
+      addToCart, removeFromCart, changeQty, isInWishlist, toggleWishlist,
+      resetFilters, openProduct, doSearch, checkout, confirmOrder,
+      openAddressModal, saveAddress, deleteAddress, retryConnection,
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
