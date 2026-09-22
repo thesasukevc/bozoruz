@@ -4,7 +4,6 @@ import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// GET /api/addresses
 router.get('/', requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
@@ -19,7 +18,6 @@ router.get('/', requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/addresses
 router.post('/', requireAuth, async (req, res) => {
   try {
     const { title, region, district, street, phone, is_default } = req.body;
@@ -52,7 +50,6 @@ router.post('/', requireAuth, async (req, res) => {
   }
 });
 
-// PUT /api/addresses/:id
 router.put('/:id', requireAuth, async (req, res) => {
   try {
     if (req.body.is_default) {
@@ -75,7 +72,6 @@ router.put('/:id', requireAuth, async (req, res) => {
   }
 });
 
-// DELETE /api/addresses/:id
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
     const { error } = await supabaseAdmin

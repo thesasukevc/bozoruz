@@ -1,10 +1,9 @@
 import express from 'express';
-import { supabase, supabaseAdmin } from '../config/supabase.js';
+import { supabaseAdmin } from '../config/supabase.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// GET /api/categories
 router.get('/', async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
@@ -12,15 +11,14 @@ router.get('/', async (req, res) => {
       .select('*')
       .eq('active', true)
       .order('sort_order', { ascending: true });
+
     if (error) throw error;
     res.json(data || []);
   } catch (err) {
-    console.error('Categories GET error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST /api/categories (admin)
 router.post('/', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { name, slug, icon, image_url, sort_order } = req.body;
@@ -39,7 +37,6 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-// PUT /api/categories/:id (admin)
 router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
@@ -55,7 +52,6 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-// DELETE /api/categories/:id (admin)
 router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { error } = await supabaseAdmin

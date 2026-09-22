@@ -1,15 +1,14 @@
 import express from 'express';
-import { supabase, supabaseAdmin } from '../config/supabase.js';
+import { supabaseAdmin } from '../config/supabase.js';
 import { requireAuth, requireVendorOrAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// GET /api/products
 router.get('/', async (req, res) => {
   try {
     const {
-      category, search, min_price, max_price, brand, min_rating,
-      sort, page = 1, limit = 24,
+      category, search, min_price, max_price, brand,
+      sort = 'popular', page = 1, limit = 24,
     } = req.query;
 
     let query = supabaseAdmin
@@ -22,17 +21,16 @@ router.get('/', async (req, res) => {
     if (min_price) query = query.gte('price', parseInt(min_price));
     if (max_price) query = query.lte('price', parseInt(max_price));
     if (brand) query = query.eq('brand', brand);
-    if (min_rating) query = query.gte('rating', parseFloat(min_rating));
 
     const sortMap = {
-      'price-asc': { column: 'price', ascending: true },
-      'price-desc': { column: 'price', ascending: false },
-      'rating': { column: 'rating', ascending: false },
-      'new': { column: 'created_at', ascending: false },
-      'popular': { column: 'reviews_count', ascending: false },
+      'price-asc': ['price', true],
+      'price-desc': ['price', false],
+      'rating': ['rating', false],
+      'new': ['created_at', false],
+      'popular': ['reviews_count', false],
     };
-    const s = sortMap[sort] || sortMap.popular;
-    query = query.order(s.column, { ascending: s.ascending });
+    const [col, asc] = sortMap[sort] || sortMap.popular;
+    query = query.order(col, { ascending: asc });
 
     const from = (parseInt(page) - 1) * parseInt(limit);
     query = query.range(from, from + parseInt(limit) - 1);
@@ -47,12 +45,10 @@ router.get('/', async (req, res) => {
       pages: Math.ceil((count || 0) / parseInt(limit)),
     });
   } catch (err) {
-    console.error('Products GET error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /api/products/:id
 router.get('/:id', async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
@@ -74,7 +70,6 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// POST /api/products (vendor/admin)
 router.post('/', requireAuth, requireVendorOrAdmin, async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
@@ -89,7 +84,6 @@ router.post('/', requireAuth, requireVendorOrAdmin, async (req, res) => {
   }
 });
 
-// PUT /api/products/:id (vendor/admin)
 router.put('/:id', requireAuth, requireVendorOrAdmin, async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
@@ -105,7 +99,6 @@ router.put('/:id', requireAuth, requireVendorOrAdmin, async (req, res) => {
   }
 });
 
-// DELETE /api/products/:id
 router.delete('/:id', requireAuth, requireVendorOrAdmin, async (req, res) => {
   try {
     const { error } = await supabaseAdmin

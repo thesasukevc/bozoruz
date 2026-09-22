@@ -4,7 +4,6 @@ import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// GET /api/orders
 router.get('/', requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
@@ -19,7 +18,6 @@ router.get('/', requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/orders
 router.post('/', requireAuth, async (req, res) => {
   try {
     const { items, address, phone, payment_method, comment, total } = req.body;
@@ -30,7 +28,7 @@ router.post('/', requireAuth, async (req, res) => {
 
     const orderNumber = 'BZ' + Date.now().toString().slice(-8);
 
-    const { data: order, error: orderError } = await supabaseAdmin
+    const { data: order, error } = await supabaseAdmin
       .from('orders')
       .insert({
         user_id: req.user.id,
@@ -46,18 +44,15 @@ router.post('/', requireAuth, async (req, res) => {
       .select()
       .single();
 
-    if (orderError) throw orderError;
+    if (error) throw error;
 
-    // Stock kamaytirish
     for (const item of items) {
       try {
         await supabaseAdmin.rpc('decrement_stock', {
           p_product_id: item.id,
           p_qty: item.qty,
         });
-      } catch (e) {
-        console.error('Stock decrement error:', e);
-      }
+      } catch (e) { console.error('Stock:', e); }
     }
 
     res.status(201).json(order);
@@ -66,7 +61,6 @@ router.post('/', requireAuth, async (req, res) => {
   }
 });
 
-// PATCH /api/orders/:id/cancel
 router.patch('/:id/cancel', requireAuth, async (req, res) => {
   try {
     const { error } = await supabaseAdmin
