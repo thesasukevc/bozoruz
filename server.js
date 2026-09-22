@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import https from 'https';
 
 import authRoutes from './routes/auth.js';
 import categoryRoutes from './routes/categories.js';
@@ -22,6 +23,10 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const NODE_ENV = process.env.NODE_ENV || 'development';
+
+// Render tashqi URL (self-ping uchun)
+const RENDER_URL = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
 
 const frontendPath = path.join(__dirname, 'frontend');
 const indexPath = path.join(frontendPath, 'index.html');
@@ -30,50 +35,46 @@ const indexPath = path.join(frontendPath, 'index.html');
 // STARTUP LOG
 // ============================================================
 console.log('════════════════════════════════════════════════');
-console.log('🚀 BOZORUZ BACKEND');
+console.log('🚀 BOZORUZ BACKEND STARTING');
 console.log('════════════════════════════════════════════════');
-console.log('📁 Frontend:', frontendPath);
-console.log('📄 Index:   ', indexPath);
-console.log('✅ Mavjud:  ', fs.existsSync(indexPath) ? 'HA' : 'YO\'Q ❌');
-console.log('🔗 Supabase:', process.env.SUPABASE_URL || 'YO\'Q ❌');
-console.log('🌍 Env:     ', process.env.NODE_ENV || 'development');
-console.log('🔌 Port:    ', PORT);
+console.log('📁 Frontend:     ', frontendPath);
+console.log('📄 Index:        ', indexPath);
+console.log('✅ Index mavjud: ', fs.existsSync(indexPath) ? 'HA' : 'YO\'Q');
+console.log('🔗 Supabase URL: ', process.env.SUPABASE_URL || 'YO\'Q');
+console.log('🔑 ANON KEY:     ', process.env.SUPABASE_ANON_KEY 
+  ? `✅ ${process.env.SUPABASE_ANON_KEY.slice(0, 20)}...` 
+  : '❌ YO\'Q');
+console.log('🔑 SERVICE KEY:  ', process.env.SUPABASE_SERVICE_KEY 
+  ? `✅ ${process.env.SUPABASE_SERVICE_KEY.slice(0, 20)}...` 
+  : '❌ YO\'Q');
+console.log('🌍 Env:          ', NODE_ENV);
+console.log('🔌 Port:         ', PORT);
+console.log('🌐 Render URL:   ', RENDER_URL);
 console.log('════════════════════════════════════════════════');
 
 // ============================================================
-// 🔥 CORS - ENG BIRINCHI VA ENG MUHIM!
-// Bu middleware barcha CORS muammolarini hal qiladi
+// CORS — BARCHA MUAMMOLARNI HAL QILADI
 // ============================================================
 app.use((req, res, next) => {
-  // Origin - qaysi domendan kelgan
-  const origin = req.headers.origin;
+  const origin = req.headers.origin || '*';
   
-  // Barcha domenlarga ruxsat
-  res.header('Access-Control-Allow-Origin', origin || '*');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
-  // Ruxsat berilgan metodlar
-  res.header(
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader(
     'Access-Control-Allow-Methods',
     'GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD'
   );
-  
-  // Ruxsat berilgan sarlavhalar
-  res.header(
+  res.setHeader(
     'Access-Control-Allow-Headers',
-    'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma'
+    'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma, If-Match, If-None-Match'
   );
-  
-  // Exposed sarlavhalar
-  res.header(
+  res.setHeader(
     'Access-Control-Expose-Headers',
     'Content-Length, Content-Type, X-Total-Count'
   );
+  res.setHeader('Access-Control-Max-Age', '86400');
   
-  // Preflight cache (24 soat)
-  res.header('Access-Control-Max-Age', '86400');
-  
-  // OPTIONS preflight so'rovlari uchun darhol 200 qaytarish
+  // OPTIONS preflight — darhol 200
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
@@ -81,20 +82,12 @@ app.use((req, res, next) => {
   next();
 });
 
-// Express cors (zaxira sifatida)
+// Express cors (zaxira)
 app.use(cors({
   origin: true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
-  allowedHeaders: [
-    'Origin', 
-    'X-Requested-With', 
-    'Content-Type', 
-    'Accept', 
-    'Authorization',
-    'Cache-Control',
-    'Pragma',
-  ],
+  allowedHeaders: ['*'],
   exposedHeaders: ['Content-Length', 'Content-Type', 'X-Total-Count'],
   maxAge: 86400,
 }));
@@ -106,11 +99,34 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ============================================================
+// REQUEST LOGGER (debug uchun)
+// ============================================================
+app.use((req, res, next) => {
+  const start = Date.now();
+  const originalEnd = res.end;
+  
+  res.end = function(...args) {
+    const duration = Date.now() - start;
+    const status = res.statusCode;
+    const statusColor = status >= 500 ? '🔴' : status >= 400 ? '🟡' : '🟢';
+    
+    // Faqat API so'rovlarini logga yozamiz
+    if (req.path.startsWith('/api')) {
+      console.log(`${statusColor} ${req.method} ${req.path} → ${status} (${duration}ms) | Origin: ${req.headers.origin || 'none'}`);
+    }
+    
+    originalEnd.apply(res, args);
+  };
+  
+  next();
+});
+
+// ============================================================
 // RATE LIMITING (OPTIONS dan tashqari)
 // ============================================================
 app.use('/api/', rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 daqiqa
-  max: 1000,                 // 1000 so'rov
+  windowMs: 15 * 60 * 1000,
+  max: NODE_ENV === 'production' ? 1000 : 10000,
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => req.method === 'OPTIONS',
@@ -126,6 +142,7 @@ app.get('/api', (req, res) => {
     version: '1.0.0',
     status: 'online',
     cors: 'enabled',
+    uptime: Math.floor(process.uptime()),
     timestamp: new Date().toISOString(),
     endpoints: {
       auth: {
@@ -139,32 +156,78 @@ app.get('/api', (req, res) => {
       orders: 'GET /api/orders',
       addresses: 'GET /api/addresses',
       health: 'GET /api/health',
+      ping: 'GET /api/ping',
     },
   });
 });
 
 // ============================================================
-// HEALTH CHECK
+// HEALTH CHECK (Render uchun muhim!)
 // ============================================================
 app.get('/api/health', (req, res) => {
   res.json({
     ok: true,
     ts: Date.now(),
-    env: process.env.NODE_ENV || 'development',
+    env: NODE_ENV,
+    uptime: Math.floor(process.uptime()),
     frontend: fs.existsSync(indexPath) ? 'ok' : 'missing',
     cors: 'enabled',
-    supabase: process.env.SUPABASE_URL ? 'configured' : 'missing',
+    supabase: {
+      url: process.env.SUPABASE_URL ? 'configured' : 'missing',
+      anon: process.env.SUPABASE_ANON_KEY ? 'configured' : 'missing',
+      service: process.env.SUPABASE_SERVICE_KEY ? 'configured' : 'missing',
+    },
   });
 });
 
 // ============================================================
-// API ROUTES
+// PING (UptimeRobot / Cron-job uchun)
 // ============================================================
-app.use('/api/auth', authRoutes);
-app.use('/api/categories', categoryRoutes);
-app.use('/api/products', productRoutes);
-app.use('/api/orders', orderRoutes);
-app.use('/api/addresses', addressRoutes);
+app.get('/api/ping', (req, res) => {
+  res.json({ 
+    pong: true, 
+    ts: Date.now(),
+    uptime: Math.floor(process.uptime()),
+  });
+});
+
+// ============================================================
+// API ROUTES (xato bo'lsa ham crash bo'lmasin)
+// ============================================================
+try {
+  app.use('/api/auth', authRoutes);
+  console.log('✅ /api/auth yuklandi');
+} catch (e) {
+  console.error('❌ /api/auth xatosi:', e.message);
+}
+
+try {
+  app.use('/api/categories', categoryRoutes);
+  console.log('✅ /api/categories yuklandi');
+} catch (e) {
+  console.error('❌ /api/categories xatosi:', e.message);
+}
+
+try {
+  app.use('/api/products', productRoutes);
+  console.log('✅ /api/products yuklandi');
+} catch (e) {
+  console.error('❌ /api/products xatosi:', e.message);
+}
+
+try {
+  app.use('/api/orders', orderRoutes);
+  console.log('✅ /api/orders yuklandi');
+} catch (e) {
+  console.error('❌ /api/orders xatosi:', e.message);
+}
+
+try {
+  app.use('/api/addresses', addressRoutes);
+  console.log('✅ /api/addresses yuklandi');
+} catch (e) {
+  console.error('❌ /api/addresses xatosi:', e.message);
+}
 
 // ============================================================
 // API 404 HANDLER
@@ -183,13 +246,13 @@ app.all('/api/*', (req, res) => {
 app.use(express.static(frontendPath, {
   maxAge: '1h',
   etag: true,
+  index: false,
 }));
 
 // ============================================================
-// SPA FALLBACK (barcha boshqa URL'lar uchun)
+// SPA FALLBACK
 // ============================================================
 app.get('*', (req, res) => {
-  // API so'rovlari bu yerga yetib kelmasligi kerak (yuqorida ushlanadi)
   if (req.path.startsWith('/api')) {
     return res.status(404).json({ error: 'API endpoint topilmadi' });
   }
@@ -200,16 +263,12 @@ app.get('*', (req, res) => {
     res.status(404).send(`
       <!DOCTYPE html>
       <html>
-      <head>
-        <title>Frontend topilmadi</title>
-        <meta charset="UTF-8">
-      </head>
+      <head><title>Frontend topilmadi</title><meta charset="UTF-8"></head>
       <body style="font-family:system-ui;padding:40px;max-width:600px;margin:0 auto">
         <h1>⚠️ Frontend topilmadi</h1>
-        <p><strong>Kutilgan joy:</strong> <code>${indexPath}</code></p>
-        <p><strong>Server joyi:</strong> <code>${__dirname}</code></p>
+        <p><strong>Kutilgan:</strong> <code>${indexPath}</code></p>
+        <p><strong>Server:</strong> <code>${__dirname}</code></p>
         <hr>
-        <h2>API test:</h2>
         <p><a href="/api">→ /api</a></p>
         <p><a href="/api/health">→ /api/health</a></p>
       </body>
@@ -222,39 +281,55 @@ app.get('*', (req, res) => {
 // GLOBAL ERROR HANDLER
 // ============================================================
 app.use((err, req, res, next) => {
-  console.error('❌ Server xatosi:', err);
-  console.error('Path:', req.path);
-  console.error('Method:', req.method);
+  console.error('❌ Server xatosi:', err.message);
+  console.error('   Path:', req.path);
+  console.error('   Method:', req.method);
   
   res.status(err.status || 500).json({
     error: 'Server xatosi',
-    message: process.env.NODE_ENV === 'production' 
-      ? 'Ichki server xatosi' 
-      : err.message,
+    message: NODE_ENV === 'production' ? 'Ichki server xatosi' : err.message,
   });
 });
 
 // ============================================================
 // SERVER START
 // ============================================================
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`
 ╔════════════════════════════════════════════════╗
-║   🚀 BozorUz Backend ishga tushdi!            ║
+║   🚀 BOZORUZ BACKEND ISHGA TUSHDI!            ║
 ╠════════════════════════════════════════════════╣
 ║   📡 Port:        ${String(PORT).padEnd(28)}║
 ║   ✅ CORS:        ENABLED                      ║
-║   🌐 Frontend:    ${fs.existsSync(indexPath) ? 'OK' : 'MISSING'}                           ║
-║   🔗 Supabase:    ${process.env.SUPABASE_URL ? 'OK' : 'MISSING'}                           ║
+║   🌐 Frontend:    ${(fs.existsSync(indexPath) ? 'OK' : 'MISSING').padEnd(28)}║
+║   🔗 Supabase:    ${(process.env.SUPABASE_URL ? 'OK' : 'MISSING').padEnd(28)}║
+║   ⏱️  Uptime:      ${String(Math.floor(process.uptime()) + 's').padEnd(28)}║
 ╚════════════════════════════════════════════════╝
   `);
+
+  // ============================================================
+  // SELF-PING (Render uxlab qolmasligi uchun)
+  // ============================================================
+  if (NODE_ENV === 'production' && RENDER_URL.includes('onrender.com')) {
+    console.log('🔄 Self-ping yoqildi (har 14 daqiqada)');
+    
+    setInterval(() => {
+      const url = `${RENDER_URL}/api/ping`;
+      
+      https.get(url, (res) => {
+        // Success
+      }).on('error', (err) => {
+        console.error('⚠️ Self-ping xatosi:', err.message);
+      });
+    }, 14 * 60 * 1000); // 14 daqiqa
+  }
 });
 
 // ============================================================
 // GRACEFUL SHUTDOWN
 // ============================================================
 process.on('SIGTERM', () => {
-  console.log('⚠️ SIGTERM signal qabul qilindi. Server yopilmoqda...');
+  console.log('⚠️ SIGTERM — Server yopilmoqda...');
   server.close(() => {
     console.log('✅ Server yopildi');
     process.exit(0);
@@ -262,7 +337,7 @@ process.on('SIGTERM', () => {
 });
 
 process.on('SIGINT', () => {
-  console.log('⚠️ SIGINT signal qabul qilindi. Server yopilmoqda...');
+  console.log('⚠️ SIGINT — Server yopilmoqda...');
   server.close(() => {
     console.log('✅ Server yopildi');
     process.exit(0);
@@ -270,13 +345,14 @@ process.on('SIGINT', () => {
 });
 
 // ============================================================
-// UNHANDLED ERRORS
+// UNHANDLED ERRORS (server crash bo'lmasligi uchun)
 // ============================================================
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', (reason) => {
   console.error('❌ Unhandled Rejection:', reason);
 });
 
 process.on('uncaughtException', (err) => {
-  console.error('❌ Uncaught Exception:', err);
-  process.exit(1);
+  console.error('❌ Uncaught Exception:', err.message);
+  console.error(err.stack);
+  // Process.exit QILMAYMIZ — server ishlashda davom etadi
 });
