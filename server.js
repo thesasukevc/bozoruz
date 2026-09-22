@@ -3,6 +3,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 import authRoutes from './routes/auth.js';
 import categoryRoutes from './routes/categories.js';
@@ -11,6 +13,10 @@ import orderRoutes from './routes/orders.js';
 import addressRoutes from './routes/addresses.js';
 
 dotenv.config();
+
+// ✅ ES Module'da __dirname olish
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,7 +28,6 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
 
-// CORS — barcha domenlarga ruxsat (production uchun aniqlashtiring)
 app.use(cors({
   origin: '*',
   credentials: true,
@@ -39,13 +44,12 @@ app.use('/api/', rateLimit({
   legacyHeaders: false,
 }));
 
-// ============ ROOT ============
-app.get('/', (req, res) => {
+// ============ API ROOT ============
+app.get('/api', (req, res) => {
   res.json({
     name: 'BozorUz API',
     version: '1.0.0',
     status: 'online',
-    message: 'Backend ishlayapti! API uchun /api ga o\'ting',
     endpoints: {
       health: '/api/health',
       categories: '/api/categories',
@@ -57,9 +61,9 @@ app.get('/', (req, res) => {
   });
 });
 
-// ============ HEALTH CHECK ============
+// ============ HEALTH ============
 app.get('/api/health', (req, res) => {
-  res.json({ ok: true, ts: Date.now(), env: process.env.NODE_ENV });
+  res.json({ ok: true, ts: Date.now(), env: process.env.NODE_ENV || 'development' });
 });
 
 // ============ API ROUTES ============
@@ -69,15 +73,39 @@ app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/addresses', addressRoutes);
 
+// ============ STATIC FRONTEND ============
+// ✅ frontend papkasi server.js bilan bir joyda
+const frontendPath = path.join(__dirname, 'frontend');
+console.log('📁 Frontend path:', frontendPath);
+
+// Static fayllar (CSS, JS, rasm)
+app.use(express.static(frontendPath));
+
+// ============ SPA FALLBACK ============
+// Barcha boshqa URL'lar uchun index.html qaytarish
+// LEKIN /api/* ga tegmaslik
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api')) {
+    return next();
+  }
+  res.sendFile(path.join(frontendPath, 'index.html'));
+});
+
 // ============ API 404 ============
 app.use('/api/*', (req, res) => {
-  res.status(404).json({ error: 'API endpoint topilmadi', path: req.originalUrl });
+  res.status(404).json({ 
+    error: 'API endpoint topilmadi', 
+    path: req.originalUrl 
+  });
 });
 
 // ============ ERROR HANDLER ============
 app.use((err, req, res, next) => {
   console.error('❌ Server xatosi:', err);
-  res.status(500).json({ error: 'Server xatosi', message: err.message });
+  res.status(500).json({ 
+    error: 'Server xatosi', 
+    message: err.message 
+  });
 });
 
 // ============ START ============
@@ -87,8 +115,8 @@ app.listen(PORT, () => {
 ║   🚀 BozorUz Backend ishga tushdi!            ║
 ╠════════════════════════════════════════════════╣
 ║   📡 Port:      ${PORT}                           
+║   🌐 Frontend:  http://localhost:${PORT}           
 ║   💚 Health:    /api/health                    
-║   🌐 API:       /api                           
 ╚════════════════════════════════════════════════╝
   `);
 });
