@@ -30,30 +30,48 @@ console.log('📄 Index:   ', indexPath);
 console.log('✅ Mavjud:  ', fs.existsSync(indexPath) ? 'HA' : 'YO\'Q');
 console.log('════════════════════════════════════════════════');
 
-// ============ SECURITY ============
+// ============================================================
+// ⚠️ CORS BIRINCHI BO'LISHI SHART (helmet'dan oldin!)
+// ============================================================
+app.use(cors({
+  origin: '*',
+  credentials: false,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Length', 'X-Requested-With'],
+  maxAge: 86400,
+}));
+
+// OPTIONS preflight so'rovlarini darhol qaytarish
+app.options('*', cors());
+
+// ============================================================
+// HELMET (CORS'dan KEYIN)
+// ============================================================
 app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false,
-  crossOriginResourcePolicy: { policy: 'cross-origin' },
-}));
-
-app.use(cors({
-  origin: '*',
-  credentials: true,
+  crossOriginResourcePolicy: false,
+  crossOriginOpenerPolicy: false,
 }));
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// ============ RATE LIMITING ============
+// ============================================================
+// RATE LIMITING (OPTIONS'dan tashqari)
+// ============================================================
 app.use('/api/', rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 1000,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.method === 'OPTIONS',
 }));
 
-// ============ API ROUTES ============
+// ============================================================
+// API ROUTES
+// ============================================================
 app.get('/api', (req, res) => {
   res.json({
     name: 'BozorUz API',
@@ -90,10 +108,14 @@ app.all('/api/*', (req, res) => {
   res.status(404).json({ error: 'API endpoint topilmadi', path: req.originalUrl });
 });
 
-// ============ STATIC FRONTEND ============
+// ============================================================
+// STATIC FRONTEND
+// ============================================================
 app.use(express.static(frontendPath));
 
-// ============ SPA FALLBACK ============
+// ============================================================
+// SPA FALLBACK
+// ============================================================
 app.get('*', (req, res) => {
   if (fs.existsSync(indexPath)) {
     res.sendFile(indexPath);
@@ -102,18 +124,24 @@ app.get('*', (req, res) => {
   }
 });
 
-// ============ ERROR HANDLER ============
+// ============================================================
+// ERROR HANDLER
+// ============================================================
 app.use((err, req, res, next) => {
   console.error('❌', err);
   res.status(500).json({ error: 'Server xatosi', message: err.message });
 });
 
+// ============================================================
+// START
+// ============================================================
 app.listen(PORT, () => {
   console.log(`
 ╔════════════════════════════════════════════════╗
 ║   🚀 BozorUz Backend ishga tushdi!            ║
 ║   📡 Port: ${PORT}                               
 ║   🌐 http://localhost:${PORT}                     
+║   ✅ CORS: Barcha domenlarga ruxsat            ║
 ╚════════════════════════════════════════════════╝
   `);
 });
