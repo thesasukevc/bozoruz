@@ -4,41 +4,130 @@ import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// POST /api/auth/signup
+// ============================================================
+// POST /api/auth/signup — Ro'yxatdan o'tish
+// ============================================================
 router.post('/signup', async (req, res) => {
   try {
     const { email, password, name } = req.body;
-    if (!email || !password || !name) {
-      return res.status(400).json({ error: 'Barcha maydonlar kerak' });
-    }
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { full_name: name } },
-    });
-    if (error) throw error;
-    res.json({ user: data.user, session: data.session });
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
 
-// POST /api/auth/login
-router.post('/login', async (req, res) => {
-  try {
-    const { email, password } = req.body;
+    // Validatsiya
     if (!email || !password) {
       return res.status(400).json({ error: 'Email va parol kerak' });
     }
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Parol kamida 6 belgi' });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: 'Email formati noto\'g\'ri' });
+    }
+
+    // Supabase'da ro'yxatdan o'tish
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          name: name || email.split('@')[0],
+        },
+      },
+    });
+
     if (error) throw error;
-    res.json({ user: data.user, session: data.session });
+
+    // Profil yaratish (trigger ishlamasa)
+    if (data.user) {
+      try {
+        await supabaseAdmin
+          .from('profiles')
+          .upsert({
+            id: data.user.id,
+            name: name || email.split('@')[0],
+            email: email,
+          }, { onConflict: 'id' });
+      } catch (e) {
+        console.error('Profile creation error:', e);
+      }
+    }
+
+    res.json({
+      user: {
+        id: data.user?.id,
+        email: data.user?.email,
+        name: name || email.split('@')[0],
+      },
+      session: data.session,
+      message: data.session 
+        ? 'Muvaffaqiyatli ro\'yxatdan o\'tdingiz' 
+        : 'Email'ingizni tasdiqlang',
+    });
+  } catch (err) {
+    console.error('Signup error:', err);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// POST /api/auth/login — Kirish
+// ============================================================
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email va parol kerak' });
+    }
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) throw error;
+
+    // Profilni olish
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('id', data.user.id)
+      .single();
+
+    res.json({
+      user: {
+        id: data.user.id,
+        email: data.user.email,
+        name: profile?.name || data.user.user_metadata?.name || 'Foydalanuvchi',
+        avatar: profile?.avatar_url,
+        role: profile?.role || 'customer',
+      },
+      session: {
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+        expires_at: data.session.expires_at,
+      },
+      profile,
+    });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(400).json({ error: 'Email yoki parol noto\'g\'ri' });
+  }
+});
+
+// ============================================================
+// POST /api/auth/logout
+// ============================================================
+router.post('/logout', requireAuth, async (req, res) => {
+  try {
+    await supabase.auth.signOut();
+    res.json({ ok: true, message: 'Chiqdingiz' });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
+// ============================================================
 // GET /api/auth/me
+// ============================================================
 router.get('/me', requireAuth, async (req, res) => {
   try {
     const { data: profile, error } = await supabaseAdmin
@@ -46,24 +135,42 @@ router.get('/me', requireAuth, async (req, res) => {
       .select('*')
       .eq('id', req.user.id)
       .single();
-    
-    if (error) throw error;
-    res.json({ user: req.user, profile });
+
+    if (error && error.code !== 'PGRST116') throw error;
+
+    res.json({
+      user: {
+        id: req.user.id,
+        email: req.user.email,
+        ...req.user.user_metadata,
+      },
+      profile: profile || null,
+    });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-// PATCH /api/auth/me
+// ============================================================
+// PATCH /api/auth/me — Profilni tahrirlash
+// ============================================================
 router.patch('/me', requireAuth, async (req, res) => {
   try {
-    const { name, phone } = req.body;
+    const { name, phone, avatar_url } = req.body;
+    
+    const updates = {};
+    if (name) updates.name = name;
+    if (phone) updates.phone = phone;
+    if (avatar_url) updates.avatar_url = avatar_url;
+    updates.updated_at = new Date().toISOString();
+
     const { data, error } = await supabaseAdmin
       .from('profiles')
-      .update({ name, phone, updated_at: new Date().toISOString() })
+      .update(updates)
       .eq('id', req.user.id)
       .select()
       .single();
+
     if (error) throw error;
     res.json(data);
   } catch (err) {
@@ -71,9 +178,23 @@ router.patch('/me', requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/auth/logout
-router.post('/logout', requireAuth, async (req, res) => {
-  res.json({ ok: true });
+// ============================================================
+// POST /api/auth/forgot-password — Parolni tiklash
+// ============================================================
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email kerak' });
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${process.env.FRONTEND_URL}/reset-password`,
+    });
+
+    if (error) throw error;
+    res.json({ ok: true, message: 'Email\'ingizni tekshiring' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 export default router;
