@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 import authRoutes from './routes/auth.js';
@@ -14,12 +15,22 @@ import addressRoutes from './routes/addresses.js';
 
 dotenv.config();
 
-// ✅ ES Module'da __dirname olish
+// ============ ES MODULE __dirname ============
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// ============ PATHS ============
+const frontendPath = path.join(__dirname, 'frontend');
+const indexPath = path.join(frontendPath, 'index.html');
+
+console.log('════════════════════════════════════════════════');
+console.log('📁 Frontend path:', frontendPath);
+console.log('📄 Index path:   ', indexPath);
+console.log('✅ Index mavjud: ', fs.existsSync(indexPath) ? 'HA' : 'YO\'Q ❌');
+console.log('════════════════════════════════════════════════');
 
 // ============ SECURITY ============
 app.use(helmet({
@@ -44,7 +55,8 @@ app.use('/api/', rateLimit({
   legacyHeaders: false,
 }));
 
-// ============ API ROOT ============
+// ============ API ROUTES ============
+// API root
 app.get('/api', (req, res) => {
   res.json({
     name: 'BozorUz API',
@@ -61,42 +73,63 @@ app.get('/api', (req, res) => {
   });
 });
 
-// ============ HEALTH ============
+// Health check
 app.get('/api/health', (req, res) => {
-  res.json({ ok: true, ts: Date.now(), env: process.env.NODE_ENV || 'development' });
+  res.json({ 
+    ok: true, 
+    ts: Date.now(), 
+    env: process.env.NODE_ENV || 'development',
+    frontend: fs.existsSync(indexPath) ? 'ok' : 'missing',
+  });
 });
 
-// ============ API ROUTES ============
+// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/addresses', addressRoutes);
 
-// ============ STATIC FRONTEND ============
-// ✅ frontend papkasi server.js bilan bir joyda
-const frontendPath = path.join(__dirname, 'frontend');
-console.log('📁 Frontend path:', frontendPath);
-
-// Static fayllar (CSS, JS, rasm)
-app.use(express.static(frontendPath));
-
-// ============ SPA FALLBACK ============
-// Barcha boshqa URL'lar uchun index.html qaytarish
-// LEKIN /api/* ga tegmaslik
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api')) {
-    return next();
-  }
-  res.sendFile(path.join(frontendPath, 'index.html'));
-});
-
-// ============ API 404 ============
-app.use('/api/*', (req, res) => {
+// ⚠️ API 404 - MUHIM: Bu GET '*' dan OLDIN turishi kerak
+app.all('/api/*', (req, res) => {
   res.status(404).json({ 
     error: 'API endpoint topilmadi', 
     path: req.originalUrl 
   });
+});
+
+// ============ STATIC FRONTEND ============
+app.use(express.static(frontendPath));
+
+// ============ SPA FALLBACK ============
+// Eng oxirida — barcha boshqa so'rovlar uchun index.html
+app.get('*', (req, res) => {
+  // API so'rovlar bu yerga yetib kelmasligi kerak (yuqorida 404 qaytariladi)
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(404).send(`
+      <!DOCTYPE html>
+      <html>
+      <head><title>Frontend topilmadi</title></head>
+      <body style="font-family: system-ui; padding: 40px; max-width: 600px; margin: 0 auto;">
+        <h1>⚠️ Frontend topilmadi</h1>
+        <p><strong>Kutilgan joy:</strong> <code>${indexPath}</code></p>
+        <p><strong>Server ishga tushgan joy:</strong> <code>${__dirname}</code></p>
+        <hr>
+        <h2>Nima qilish kerak?</h2>
+        <ol>
+          <li>GitHub repoda <code>frontend/index.html</code> fayli borligini tekshiring</li>
+          <li>Render'da <strong>Root Directory</strong> bo'sh ekanligiga ishonch hosil qiling</li>
+          <li>Qayta deploy qiling</li>
+        </ol>
+        <hr>
+        <p><a href="/api/health">→ /api/health</a></p>
+        <p><a href="/api">→ /api</a></p>
+      </body>
+      </html>
+    `);
+  }
 });
 
 // ============ ERROR HANDLER ============
