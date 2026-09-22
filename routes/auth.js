@@ -1,10 +1,12 @@
 import express from 'express';
 import { supabase, supabaseAdmin } from '../config/supabase.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// ============ SIGNUP ============
+// ============================================================
+// POST /api/auth/signup — Ro'yxatdan o'tish
+// ============================================================
 router.post('/signup', async (req, res) => {
   try {
     const { email, password, name } = req.body;
@@ -62,7 +64,9 @@ router.post('/signup', async (req, res) => {
   }
 });
 
-// ============ LOGIN ============
+// ============================================================
+// POST /api/auth/login — Kirish
+// ============================================================
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -103,12 +107,16 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// ============ LOGOUT ============
+// ============================================================
+// POST /api/auth/logout
+// ============================================================
 router.post('/logout', requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
-// ============ ME ============
+// ============================================================
+// GET /api/auth/me
+// ============================================================
 router.get('/me', requireAuth, async (req, res) => {
   try {
     const { data: profile } = await supabaseAdmin
@@ -129,7 +137,9 @@ router.get('/me', requireAuth, async (req, res) => {
   }
 });
 
-// ============ UPDATE PROFILE ============
+// ============================================================
+// PATCH /api/auth/me — Profilni tahrirlash
+// ============================================================
 router.patch('/me', requireAuth, async (req, res) => {
   try {
     const { name, phone, avatar_url } = req.body;
@@ -152,7 +162,9 @@ router.patch('/me', requireAuth, async (req, res) => {
   }
 });
 
-// ============ FORGOT PASSWORD ============
+// ============================================================
+// POST /api/auth/forgot-password
+// ============================================================
 router.post('/forgot-password', async (req, res) => {
   try {
     const { email } = req.body;
@@ -165,6 +177,54 @@ router.post('/forgot-password', async (req, res) => {
     if (error) throw error;
     res.json({ ok: true, message: 'Emailni tekshiring' });
   } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// GET /api/auth/users — Barcha foydalanuvchilar (FAQAT ADMIN)
+// ============================================================
+router.get('/users', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    res.json(data || []);
+  } catch (err) {
+    console.error('Get users:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// PATCH /api/auth/users/:id/role — Rolni o'zgartirish (FAQAT ADMIN)
+// ============================================================
+router.patch('/users/:id/role', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { role } = req.body;
+
+    if (!['customer', 'vendor', 'admin'].includes(role)) {
+      return res.status(400).json({ error: 'Noto\'g\'ri rol. Faqat: customer, vendor, admin' });
+    }
+
+    // O'zini o'zi admin'dan tushira olmaydi
+    if (req.params.id === req.user.id && role !== 'admin') {
+      return res.status(400).json({ error: 'O\'zingizni admin\'dan tushira olmaysiz' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('profiles')
+      .update({ role, updated_at: new Date().toISOString() })
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    console.error('Update role:', err);
     res.status(400).json({ error: err.message });
   }
 });

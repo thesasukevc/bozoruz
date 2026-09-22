@@ -24,12 +24,11 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
-
-// Render tashqi URL (self-ping uchun)
 const RENDER_URL = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
 
 const frontendPath = path.join(__dirname, 'frontend');
 const indexPath = path.join(frontendPath, 'index.html');
+const adminPath = path.join(frontendPath, 'admin.html');
 
 // ============================================================
 // STARTUP LOG
@@ -38,51 +37,37 @@ console.log('══════════════════════�
 console.log('🚀 BOZORUZ BACKEND STARTING');
 console.log('════════════════════════════════════════════════');
 console.log('📁 Frontend:     ', frontendPath);
-console.log('📄 Index:        ', indexPath);
-console.log('✅ Index mavjud: ', fs.existsSync(indexPath) ? 'HA' : 'YO\'Q');
-console.log('🔗 Supabase URL: ', process.env.SUPABASE_URL || 'YO\'Q');
-console.log('🔑 ANON KEY:     ', process.env.SUPABASE_ANON_KEY 
-  ? `✅ ${process.env.SUPABASE_ANON_KEY.slice(0, 20)}...` 
-  : '❌ YO\'Q');
-console.log('🔑 SERVICE KEY:  ', process.env.SUPABASE_SERVICE_KEY 
-  ? `✅ ${process.env.SUPABASE_SERVICE_KEY.slice(0, 20)}...` 
-  : '❌ YO\'Q');
+console.log('📄 Index:        ', indexPath, fs.existsSync(indexPath) ? '✅' : '❌');
+console.log('📄 Admin:        ', adminPath, fs.existsSync(adminPath) ? '✅' : '❌');
+console.log('🔗 Supabase URL: ', process.env.SUPABASE_URL || '❌');
+console.log('🔑 ANON KEY:     ', process.env.SUPABASE_ANON_KEY ? '✅' : '❌');
+console.log('🔑 SERVICE KEY:  ', process.env.SUPABASE_SERVICE_KEY ? '✅' : '❌');
 console.log('🌍 Env:          ', NODE_ENV);
 console.log('🔌 Port:         ', PORT);
 console.log('🌐 Render URL:   ', RENDER_URL);
 console.log('════════════════════════════════════════════════');
 
 // ============================================================
-// CORS — BARCHA MUAMMOLARNI HAL QILADI
+// CORS — ENG BIRINCHI!
 // ============================================================
 app.use((req, res, next) => {
   const origin = req.headers.origin || '*';
-  
+
   res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader(
-    'Access-Control-Allow-Methods',
-    'GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD'
-  );
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma, If-Match, If-None-Match'
-  );
-  res.setHeader(
-    'Access-Control-Expose-Headers',
-    'Content-Length, Content-Type, X-Total-Count'
-  );
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD');
+  res.setHeader('Access-Control-Allow-Headers',
+    'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma, If-Match, If-None-Match');
+  res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Type, X-Total-Count');
   res.setHeader('Access-Control-Max-Age', '86400');
-  
-  // OPTIONS preflight — darhol 200
+
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
-  
+
   next();
 });
 
-// Express cors (zaxira)
 app.use(cors({
   origin: true,
   credentials: true,
@@ -99,30 +84,29 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ============================================================
-// REQUEST LOGGER (debug uchun)
+// REQUEST LOGGER
 // ============================================================
 app.use((req, res, next) => {
   const start = Date.now();
   const originalEnd = res.end;
-  
+
   res.end = function(...args) {
     const duration = Date.now() - start;
     const status = res.statusCode;
     const statusColor = status >= 500 ? '🔴' : status >= 400 ? '🟡' : '🟢';
-    
-    // Faqat API so'rovlarini logga yozamiz
+
     if (req.path.startsWith('/api')) {
-      console.log(`${statusColor} ${req.method} ${req.path} → ${status} (${duration}ms) | Origin: ${req.headers.origin || 'none'}`);
+      console.log(`${statusColor} ${req.method} ${req.path} → ${status} (${duration}ms)`);
     }
-    
+
     originalEnd.apply(res, args);
   };
-  
+
   next();
 });
 
 // ============================================================
-// RATE LIMITING (OPTIONS dan tashqari)
+// RATE LIMITING
 // ============================================================
 app.use('/api/', rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -145,24 +129,19 @@ app.get('/api', (req, res) => {
     uptime: Math.floor(process.uptime()),
     timestamp: new Date().toISOString(),
     endpoints: {
-      auth: {
-        signup: 'POST /api/auth/signup',
-        login: 'POST /api/auth/login',
-        logout: 'POST /api/auth/logout',
-        me: 'GET /api/auth/me',
-      },
-      categories: 'GET /api/categories',
-      products: 'GET /api/products',
-      orders: 'GET /api/orders',
-      addresses: 'GET /api/addresses',
-      health: 'GET /api/health',
-      ping: 'GET /api/ping',
+      auth: '/api/auth',
+      categories: '/api/categories',
+      products: '/api/products',
+      orders: '/api/orders',
+      addresses: '/api/addresses',
+      health: '/api/health',
+      ping: '/api/ping',
     },
   });
 });
 
 // ============================================================
-// HEALTH CHECK (Render uchun muhim!)
+// HEALTH CHECK
 // ============================================================
 app.get('/api/health', (req, res) => {
   res.json({
@@ -171,6 +150,7 @@ app.get('/api/health', (req, res) => {
     env: NODE_ENV,
     uptime: Math.floor(process.uptime()),
     frontend: fs.existsSync(indexPath) ? 'ok' : 'missing',
+    admin: fs.existsSync(adminPath) ? 'ok' : 'missing',
     cors: 'enabled',
     supabase: {
       url: process.env.SUPABASE_URL ? 'configured' : 'missing',
@@ -181,18 +161,14 @@ app.get('/api/health', (req, res) => {
 });
 
 // ============================================================
-// PING (UptimeRobot / Cron-job uchun)
+// PING
 // ============================================================
 app.get('/api/ping', (req, res) => {
-  res.json({ 
-    pong: true, 
-    ts: Date.now(),
-    uptime: Math.floor(process.uptime()),
-  });
+  res.json({ pong: true, ts: Date.now(), uptime: Math.floor(process.uptime()) });
 });
 
 // ============================================================
-// API ROUTES (xato bo'lsa ham crash bo'lmasin)
+// API ROUTES
 // ============================================================
 try {
   app.use('/api/auth', authRoutes);
@@ -230,7 +206,7 @@ try {
 }
 
 // ============================================================
-// API 404 HANDLER
+// API 404
 // ============================================================
 app.all('/api/*', (req, res) => {
   res.status(404).json({
@@ -238,6 +214,31 @@ app.all('/api/*', (req, res) => {
     path: req.originalUrl,
     method: req.method,
   });
+});
+
+// ============================================================
+// ADMIN PANEL ROUTE
+// ============================================================
+app.get('/admin', (req, res) => {
+  if (fs.existsSync(adminPath)) {
+    res.sendFile(adminPath);
+  } else {
+    res.status(404).send(`
+      <!DOCTYPE html>
+      <html>
+      <head><title>Admin topilmadi</title><meta charset="UTF-8"></head>
+      <body style="font-family:system-ui;padding:40px;text-align:center">
+        <h1>⚠️ Admin panel topilmadi</h1>
+        <p>Kutilgan joy: <code>${adminPath}</code></p>
+        <p><a href="/">→ Bosh sahifa</a></p>
+      </body>
+      </html>
+    `);
+  }
+});
+
+app.get('/admin.html', (req, res) => {
+  res.redirect('/admin');
 });
 
 // ============================================================
@@ -256,7 +257,7 @@ app.get('*', (req, res) => {
   if (req.path.startsWith('/api')) {
     return res.status(404).json({ error: 'API endpoint topilmadi' });
   }
-  
+
   if (fs.existsSync(indexPath)) {
     res.sendFile(indexPath);
   } else {
@@ -284,7 +285,7 @@ app.use((err, req, res, next) => {
   console.error('❌ Server xatosi:', err.message);
   console.error('   Path:', req.path);
   console.error('   Method:', req.method);
-  
+
   res.status(err.status || 500).json({
     error: 'Server xatosi',
     message: NODE_ENV === 'production' ? 'Ichki server xatosi' : err.message,
@@ -302,26 +303,19 @@ const server = app.listen(PORT, '0.0.0.0', () => {
 ║   📡 Port:        ${String(PORT).padEnd(28)}║
 ║   ✅ CORS:        ENABLED                      ║
 ║   🌐 Frontend:    ${(fs.existsSync(indexPath) ? 'OK' : 'MISSING').padEnd(28)}║
+║   👑 Admin:       ${(fs.existsSync(adminPath) ? 'OK' : 'MISSING').padEnd(28)}║
 ║   🔗 Supabase:    ${(process.env.SUPABASE_URL ? 'OK' : 'MISSING').padEnd(28)}║
-║   ⏱️  Uptime:      ${String(Math.floor(process.uptime()) + 's').padEnd(28)}║
 ╚════════════════════════════════════════════════╝
   `);
 
-  // ============================================================
-  // SELF-PING (Render uxlab qolmasligi uchun)
-  // ============================================================
+  // Self-ping (Render uxlamasligi uchun)
   if (NODE_ENV === 'production' && RENDER_URL.includes('onrender.com')) {
     console.log('🔄 Self-ping yoqildi (har 14 daqiqada)');
-    
+
     setInterval(() => {
-      const url = `${RENDER_URL}/api/ping`;
-      
-      https.get(url, (res) => {
-        // Success
-      }).on('error', (err) => {
-        console.error('⚠️ Self-ping xatosi:', err.message);
-      });
-    }, 14 * 60 * 1000); // 14 daqiqa
+      https.get(`${RENDER_URL}/api/ping`, (res) => {})
+        .on('error', (err) => console.error('⚠️ Self-ping:', err.message));
+    }, 14 * 60 * 1000);
   }
 });
 
@@ -330,29 +324,18 @@ const server = app.listen(PORT, '0.0.0.0', () => {
 // ============================================================
 process.on('SIGTERM', () => {
   console.log('⚠️ SIGTERM — Server yopilmoqda...');
-  server.close(() => {
-    console.log('✅ Server yopildi');
-    process.exit(0);
-  });
+  server.close(() => process.exit(0));
 });
 
 process.on('SIGINT', () => {
   console.log('⚠️ SIGINT — Server yopilmoqda...');
-  server.close(() => {
-    console.log('✅ Server yopildi');
-    process.exit(0);
-  });
+  server.close(() => process.exit(0));
 });
 
-// ============================================================
-// UNHANDLED ERRORS (server crash bo'lmasligi uchun)
-// ============================================================
 process.on('unhandledRejection', (reason) => {
   console.error('❌ Unhandled Rejection:', reason);
 });
 
 process.on('uncaughtException', (err) => {
   console.error('❌ Uncaught Exception:', err.message);
-  console.error(err.stack);
-  // Process.exit QILMAYMIZ — server ishlashda davom etadi
 });
