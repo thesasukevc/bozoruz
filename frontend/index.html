@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BozorUz - Onlayn Marketplace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: { sans: ['Inter'], display: ['Space Grotesk'] },
+      colors: {
+        brand: { 50:'#eff6ff',100:'#dbeafe',500:'#3b82f6',600:'#2563eb',700:'#1d4ed8' },
+        ink: { 50:'#f8fafc',100:'#f1f5f9',200:'#e2e8f0',300:'#cbd5e1',400:'#94a3b8',500:'#64748b',700:'#334155',900:'#0f172a' }
+      }
+    }
+  }
+}
+</script>
+<style>
+  [v-cloak]{display:none}
+  body{font-family:'Inter',sans-serif;background:#fafbfc}
+  .font-display{font-family:'Space Grotesk',sans-serif}
+  .fade-enter-active,.fade-leave-active{transition:opacity .3s}
+  .fade-enter-from,.fade-leave-to{opacity:0}
+  .slide-enter-active,.slide-leave-active{transition:transform .4s cubic-bezier(.4,0,.2,1)}
+  .slide-enter-from,.slide-leave-to{transform:translateX(100%)}
+  .drop-enter-active,.drop-leave-active{transition:all .2s}
+  .drop-enter-from,.drop-leave-to{transform:translateY(-8px);opacity:0}
+  .scrollbar-hide::-webkit-scrollbar{display:none}
+  .scrollbar-hide{-ms-overflow-style:none;scrollbar-width:none}
+  .line-clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .card-hover{transition:all .4s cubic-bezier(.4,0,.2,1)}
+  .card-hover:hover{transform:translateY(-6px);box-shadow:0 20px 40px -12px rgba(15,23,42,.15)}
+  .fade-in{animation:fadeIn .5s ease}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+  .gradient-text{background:linear-gradient(135deg,#2563eb,#7c3aed);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .glass{background:rgba(255,255,255,.85);backdrop-filter:blur(12px)}
+  .btn-primary{background:linear-gradient(135deg,#2563eb,#1d4ed8);transition:all .3s;box-shadow:0 4px 14px 0 rgba(37,99,235,.25)}
+  .btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px 0 rgba(37,99,235,.35)}
+  .pill{display:inline-flex;align-items:center;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:600}
+  input:focus,select:focus,textarea:focus{outline:none}
+</style>
+</head>
+<body>
+<div id="app" v-cloak>
+
+  <!-- LOADING -->
+  <div v-if="isLoading" class="fixed inset-0 bg-white z-[100] flex items-center justify-center">
+    <div class="text-center">
+      <div class="relative w-20 h-20 mx-auto mb-6">
+        <div class="absolute inset-0 border-4 border-brand-500/20 rounded-full"></div>
+        <div class="absolute inset-0 border-4 border-transparent border-t-brand-600 rounded-full animate-spin"></div>
+      </div>
+      <p class="text-ink-500 font-medium">Yuklanmoqda...</p>
+    </div>
+  </div>
+
+  <div v-else>
+    <!-- HEADER -->
+    <header class="glass sticky top-0 z-40 border-b border-ink-200/60">
+      <div class="max-w-7xl mx-auto px-4 lg:px-6 py-3.5">
+        <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2.5 cursor-pointer flex-shrink-0" @click="navigate('home')">
+            <div class="w-11 h-11 bg-gradient-to-br from-brand-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-brand-500/30">
+              <i class="fas fa-shopping-bag text-white text-lg"></i>
+            </div>
+            <div class="hidden sm:block">
+              <div class="font-display font-bold text-lg text-ink-900">BozorUz</div>
+              <div class="text-[10px] text-ink-400 tracking-wider uppercase">Marketplace</div>
+            </div>
+          </div>
+
+          <div class="flex-1 relative max-w-2xl">
+            <input 
+              v-model="searchQuery" 
+              @keyup.enter="doSearch" 
+              type="text" 
+              placeholder="Mahsulot qidirish..."
+              class="w-full px-4 py-3 pl-12 bg-ink-100/70 border border-transparent rounded-2xl focus:bg-white focus:border-brand-500 transition">
+            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-ink-400"></i>
+          </div>
+
+          <div class="flex items-center gap-1">
+            <button @click="cartOpen = true" class="relative w-11 h-11 hover:bg-ink-100 rounded-xl flex items-center justify-center">
+              <i class="fas fa-shopping-bag text-ink-700"></i>
+              <span v-if="cartCount > 0" class="absolute -top-0.5 -right-0.5 bg-brand-600 text-white text-[10px] font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">{{ cartCount }}</span>
+            </button>
+
+            <div class="relative">
+              <button @click="userMenuOpen = !userMenuOpen" class="flex items-center gap-2 p-1.5 hover:bg-ink-100 rounded-xl">
+                <img v-if="user && user.avatar" :src="user.avatar" class="w-8 h-8 rounded-lg object-cover">
+                <div v-else class="w-8 h-8 bg-ink-100 rounded-lg flex items-center justify-center">
+                  <i class="fas fa-user text-ink-600 text-sm"></i>
+                </div>
+              </button>
+
+              <transition name="drop">
+                <div v-if="userMenuOpen" class="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-ink-200 overflow-hidden z-50">
+                  <div v-if="user" class="px-4 py-3 bg-gradient-to-br from-brand-600 to-purple-600 text-white">
+                    <div class="font-semibold">{{ user.name }}</div>
+                    <div class="text-xs opacity-90">{{ user.email }}</div>
+                  </div>
+                  <div class="p-1.5">
+                    <template v-if="user">
+                      <button @click="logout" class="w-full text-left px-3 py-2.5 hover:bg-red-50 rounded-lg text-sm font-medium text-red-600 flex items-center gap-3">
+                        <i class="fas fa-sign-out-alt w-4"></i>Chiqish
+                      </button>
+                    </template>
+                    <template v-else>
+                      <button @click="openAuth(); userMenuOpen=false" class="w-full text-left px-3 py-2.5 hover:bg-ink-50 rounded-lg text-sm font-medium flex items-center gap-3">
+                        <i class="fas fa-sign-in-alt text-ink-400 w-4"></i>Kirish
+                      </button>
+                    </template>
+                  </div>
+                </div>
+              </transition>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Categories -->
+      <div v-if="categories.length > 0" class="border-t border-ink-100">
+        <div class="max-w-7xl mx-auto px-4 lg:px-6 overflow-x-auto scrollbar-hide">
+          <div class="flex gap-2 py-2.5">
+            <button 
+              @click="selectedCategory = 'all'"
+              :class="['px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all', selectedCategory === 'all' ? 'bg-ink-900 text-white' : 'text-ink-600 hover:bg-ink-100']">
+              <i class="fas fa-th-large mr-1.5"></i>Barchasi
+            </button>
+            <button 
+              v-for="cat in categories" 
+              :key="cat.id" 
+              @click="selectedCategory = cat.id"
+              :class="['px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all flex items-center gap-1.5', selectedCategory === cat.id ? 'bg-ink-900 text-white' : 'text-ink-600 hover:bg-ink-100']">
+              <i v-if="cat.icon" :class="cat.icon"></i>{{ cat.name }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- HOME -->
+    <main class="max-w-7xl mx-auto px-4 lg:px-6 py-8 fade-in">
+      <div class="relative rounded-3xl overflow-hidden mb-12 bg-ink-900">
+        <div class="absolute inset-0 opacity-40">
+          <div class="absolute w-96 h-96 bg-brand-600 rounded-full blur-3xl -top-20 -left-20"></div>
+          <div class="absolute w-96 h-96 bg-purple-600 rounded-full blur-3xl -bottom-20 -right-20"></div>
+        </div>
+        <div class="relative p-8 md:p-16 text-white">
+          <div class="max-w-2xl">
+            <span class="pill bg-white/10 backdrop-blur border border-white/20 mb-5">
+              <i class="fas fa-bolt text-yellow-400 mr-2"></i>Zamonaviy marketplace
+            </span>
+            <h1 class="font-display text-4xl md:text-6xl font-bold mb-5 leading-tight">
+              Minglab mahsulotlar<br>
+              <span class="bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent">bir joyda</span>
+            </h1>
+            <p class="text-lg md:text-xl mb-8 opacity-80">Eng yaxshi narxlar, sifatli mahsulotlar, tez yetkazib berish</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Search results indicator -->
+      <div v-if="searchQuery" class="mb-6 p-4 bg-brand-50 rounded-2xl flex justify-between items-center">
+        <span class="text-brand-700 font-medium">
+          <i class="fas fa-search mr-2"></i>"{{ searchQuery }}" uchun natijalar
+        </span>
+        <button @click="searchQuery = ''" class="text-sm text-brand-600 hover:underline">Tozalash</button>
+      </div>
+
+      <!-- Products -->
+      <div class="mb-12">
+        <div class="mb-6">
+          <div class="text-xs font-semibold text-brand-600 uppercase tracking-wider mb-1">Katalog</div>
+          <h2 class="font-display text-3xl font-bold text-ink-900">{{ filteredProducts.length }} ta mahsulot</h2>
+        </div>
+
+        <div v-if="filteredProducts.length === 0" class="bg-white rounded-3xl p-16 text-center border border-dashed border-ink-200">
+          <div class="w-20 h-20 mx-auto rounded-3xl bg-ink-100 flex items-center justify-center mb-5">
+            <i class="fas fa-box-open text-3xl text-ink-400"></i>
+          </div>
+          <h3 class="font-display font-bold text-xl text-ink-900 mb-2">
+            {{ searchQuery ? 'Mahsulot topilmadi' : 'Hozircha mahsulotlar yo\'q' }}
+          </h3>
+          <p class="text-ink-500">
+            {{ searchQuery ? 'Boshqa so\'z bilan qidirib ko\'ring' : 'Mahsulotlar admin panel orqali qo\'shiladi' }}
+          </p>
+          <button v-if="searchQuery" @click="searchQuery = ''" class="mt-4 text-brand-600 font-semibold hover:underline">
+            Qidiruvni tozalash
+          </button>
+        </div>
+
+        <div v-else class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+          <div 
+            v-for="p in filteredProducts" 
+            :key="p.id" 
+            class="bg-white rounded-2xl overflow-hidden card-hover cursor-pointer border border-ink-100"
+            @click="openProduct(p)">
+            <div class="aspect-square bg-ink-50 overflow-hidden relative">
+              <img 
+                :src="p.images && p.images[0] ? p.images[0] : 'https://via.placeholder.com/400x400?text=No+Image'" 
+                :alt="p.name"
+                class="w-full h-full object-cover">
+              <span v-if="p.discount" class="absolute top-3 left-3 bg-red-500 text-white text-xs px-2.5 py-1 rounded-lg font-bold">
+                -{{ p.discount }}%
+              </span>
+            </div>
+            <div class="p-4">
+              <div v-if="p.brand" class="text-[11px] font-semibold text-brand-600 uppercase mb-1.5">{{ p.brand }}</div>
+              <h3 class="text-sm font-semibold text-ink-900 line-clamp-2 h-10 mb-2.5">{{ p.name }}</h3>
+              <div class="flex items-center gap-1.5 mb-3">
+                <i v-for="i in 5" :key="i" :class="['fas fa-star text-[10px]', i <= Math.round(p.rating || 0) ? 'text-yellow-400' : 'text-ink-200']"></i>
+                <span class="text-[11px] text-ink-400">({{ p.reviews_count || 0 }})</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <div>
+                  <div v-if="p.old_price" class="text-[11px] text-ink-400 line-through">{{ formatPrice(p.old_price) }}</div>
+                  <div class="font-display font-bold text-ink-900">{{ formatPrice(p.price) }}</div>
+                </div>
+                <button 
+                  @click.stop="addToCart(p)" 
+                  class="w-9 h-9 bg-ink-900 hover:bg-brand-600 text-white rounded-xl flex items-center justify-center transition">
+                  <i class="fas fa-plus text-xs"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- CART SIDEBAR -->
+    <transition name="fade">
+      <div v-if="cartOpen" class="fixed inset-0 bg-ink-900/60 backdrop-blur-sm z-50" @click.self="cartOpen = false">
+        <transition name="slide">
+          <div class="absolute right-0 top-0 h-full w-full max-w-md bg-white flex flex-col shadow-2xl">
+            <div class="p-5 border-b flex justify-between items-center">
+              <div>
+                <div class="text-xs font-semibold text-brand-600 uppercase">Savat</div>
+                <h2 class="font-display font-bold text-xl">{{ cartCount }} ta mahsulot</h2>
+              </div>
+              <button @click="cartOpen = false" class="w-10 h-10 hover:bg-ink-100 rounded-xl">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+
+            <div v-if="cart.length === 0" class="flex-1 flex flex-col items-center justify-center p-8">
+              <i class="fas fa-shopping-bag text-5xl text-ink-300 mb-4"></i>
+              <p class="text-ink-500 mb-4">Savat bo'sh</p>
+              <button @click="cartOpen = false" class="text-brand-600 font-semibold hover:underline">
+                Xarid qilish
+              </button>
+            </div>
+
+            <div v-else class="flex-1 overflow-y-auto p-5 space-y-4">
+              <div v-for="item in cart" :key="item.id" class="flex gap-3 pb-4 border-b last:border-0">
+                <img :src="item.images && item.images[0] ? item.images[0] : 'https://via.placeholder.com/80'" class="w-20 h-20 rounded-xl object-cover">
+                <div class="flex-1">
+                  <div class="text-sm font-semibold line-clamp-2 mb-1">{{ item.name }}</div>
+                  <div class="font-display font-bold text-brand-600 mb-2">{{ formatPrice(item.price) }}</div>
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center bg-ink-50 rounded-lg">
+                      <button @click="changeQty(item, -1)" class="w-8 h-8 font-bold">−</button>
+                      <span class="w-9 text-center text-sm font-semibold">{{ item.qty }}</span>
+                      <button @click="changeQty(item, 1)" class="w-8 h-8 font-bold">+</button>
+                    </div>
+                    <button @click="removeFromCart(item)" class="w-8 h-8 text-red-500 hover:bg-red-50 rounded-lg">
+                      <i class="fas fa-trash text-sm"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="cart.length > 0" class="border-t p-5">
+              <div class="flex justify-between font-display font-bold text-2xl mb-4">
+                <span>Jami:</span>
+                <span class="gradient-text">{{ formatPrice(cartTotal) }}</span>
+              </div>
+              <button @click="checkout" class="btn-primary w-full text-white py-4 rounded-2xl font-semibold">
+                Buyurtma berish <i class="fas fa-arrow-right ml-2"></i>
+              </button>
+            </div>
+          </div>
+        </transition>
+      </div>
+    </transition>
+
+    <!-- AUTH MODAL -->
+    <transition name="fade">
+      <div v-if="authOpen" class="fixed inset-0 bg-ink-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" @click.self="authOpen = false">
+        <div class="bg-white rounded-3xl max-w-md w-full p-8 relative">
+          <button @click="authOpen = false" class="absolute top-4 right-4 w-10 h-10 hover:bg-ink-100 rounded-xl">
+            <i class="fas fa-times"></i>
+          </button>
+
+          <div class="text-center mb-8">
+            <div class="w-16 h-16 bg-gradient-to-br from-brand-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <i class="fas fa-shopping-bag text-white text-2xl"></i>
+            </div>
+            <h2 class="font-display text-2xl font-bold">Xush kelibsiz!</h2>
+            <p class="text-sm text-ink-500 mt-1">Google orqali kiring</p>
+          </div>
+
+          <button 
+            @click="loginWithGoogle" 
+            :disabled="authLoading"
+            class="w-full flex items-center justify-center gap-3 bg-white border-2 border-ink-200 py-3.5 rounded-2xl font-semibold hover:bg-ink-50 transition">
+            <svg class="w-5 h-5" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            <span v-if="!authLoading">Google bilan davom etish</span>
+            <span v-else><i class="fas fa-spinner fa-spin mr-2"></i>Yuklanmoqda...</span>
+          </button>
+
+          <div class="mt-6 text-center text-xs text-ink-400">
+            Davom etish orqali siz foydalanish shartlariga rozilik bildirasiz
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <!-- TOAST -->
+    <transition name="fade">
+      <div v-if="toast.show" class="fixed bottom-6 right-6 bg-ink-900 text-white px-6 py-4 rounded-2xl shadow-2xl z-[60] flex items-center gap-3">
+        <i :class="toast.icon"></i>
+        <span class="font-medium">{{ toast.message }}</span>
+      </div>
+    </transition>
+
+    <footer class="bg-ink-900 text-white mt-16">
+      <div class="max-w-7xl mx-auto px-4 py-12 text-center">
+        <div class="font-display font-bold text-2xl mb-2">BozorUz</div>
+        <p class="text-white/60 text-sm">© 2024 BozorUz. Barcha huquqlar himoyalangan.</p>
+      </div>
+    </footer>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// ⚠️ FAQAT BU YERDA O'ZGARTIRING
+// ============================================================
+const SUPABASE_URL = 'https://YOUR_PROJECT.supabase.co';
+const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY';
+const API_URL = 'http://localhost:3000/api';
+// ============================================================
+
+const { createApp, ref, computed, watch, onMounted } = Vue;
+
+// ✅ Supabase clientni OLDIN yaratamiz (mount'dan tashqarida)
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+createApp({
+  setup() {
+    const load = (key, def) => { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch { return def; } };
+    const save = (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} };
+
+    // ===== STATE =====
+    const currentView = ref('home');
+    const searchQuery = ref('');
+    const selectedCategory = ref('all');
+    const cartOpen = ref(false);
+    const userMenuOpen = ref(false);
+    const isLoading = ref(true); // ⚠️ Boshida true
+    const authOpen = ref(false);
+    const authLoading = ref(false);
+    const toast = ref({ show: false, message: '', icon: '' });
+
+    const user = ref(null);
+    const categories = ref([]);
+    const products = ref([]);
+    const cart = ref(load('bz_cart', []));
+
+    // ===== COMPUTED =====
+    const cartCount = computed(() => cart.value.reduce((s, i) => s + i.qty, 0));
+    const cartTotal = computed(() => cart.value.reduce((s, i) => s + i.price * i.qty, 0));
+
+    const filteredProducts = computed(() => {
+      let list = [...products.value];
+      if (selectedCategory.value !== 'all') {
+        list = list.filter(p => p.category_id === selectedCategory.value);
+      }
+      if (searchQuery.value.trim()) {
+        const q = searchQuery.value.toLowerCase().trim();
+        list = list.filter(p => 
+          p.name.toLowerCase().includes(q) || 
+          (p.brand && p.brand.toLowerCase().includes(q))
+        );
+      }
+      return list;
+    });
+
+    // ===== HELPERS =====
+    const formatPrice = (v) => new Intl.NumberFormat('uz-UZ').format(v) + ' so\'m';
+    
+    const showToast = (message, icon = 'fas fa-check-circle text-green-400') => {
+      toast.value = { show: true, message, icon };
+      setTimeout(() => toast.value.show = false, 2500);
+    };
+
+    const apiFetch = async (path, options = {}) => {
+      try {
+        const session = (await supabaseClient.auth.getSession()).data.session;
+        const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+        if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+        const res = await fetch(`${API_URL}${path}`, { ...options, headers });
+        if (!res.ok) throw new Error((await res.json()).error || 'Xatolik');
+        return res.json();
+      } catch (e) {
+        console.error('API error:', e);
+        throw e;
+      }
+    };
+
+    // ===== AUTH =====
+    const loginWithGoogle = async () => {
+      authLoading.value = true;
+      try {
+        const { error } = await supabaseClient.auth.signInWithOAuth({
+          provider: 'google',
+          options: { redirectTo: window.location.origin },
+        });
+        if (error) throw error;
+      } catch (e) {
+        showToast(e.message, 'fas fa-times-circle text-red-400');
+      }
+      authLoading.value = false;
+    };
+
+    const logout = async () => {
+      await supabaseClient.auth.signOut();
+      user.value = null;
+      userMenuOpen.value = false;
+      showToast('Tizimdan chiqdingiz', 'fas fa-sign-out-alt text-blue-400');
+    };
+
+    const openAuth = () => { authOpen.value = true; };
+
+    // ===== NAVIGATION =====
+    const navigate = (view) => {
+      currentView.value = view;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // ===== CART =====
+    const addToCart = (product, qty = 1) => {
+      const existing = cart.value.find(i => i.id === product.id);
+      if (existing) {
+        existing.qty += qty;
+      } else {
+        cart.value.push({ ...product, qty });
+      }
+      showToast('Savatga qo\'shildi');
+    };
+
+    const removeFromCart = (item) => {
+      cart.value = cart.value.filter(i => i.id !== item.id);
+    };
+
+    const changeQty = (item, delta) => {
+      item.qty = Math.max(1, item.qty + delta);
+    };
+
+    const checkout = () => {
+      if (!user.value) {
+        cartOpen.value = false;
+        authOpen.value = true;
+        return;
+      }
+      showToast('Buyurtma jarayoni tez orada', 'fas fa-info-circle text-blue-400');
+    };
+
+    // ===== PRODUCTS =====
+    const doSearch = () => {
+      // Search computed orqali ishlaydi
+      if (searchQuery.value.trim()) {
+        showToast(`"${searchQuery.value}" qidirilmoqda...`, 'fas fa-search text-brand-400');
+      }
+    };
+
+    const openProduct = (product) => {
+      showToast(product.name, 'fas fa-box text-brand-400');
+    };
+
+    // ===== LOAD DATA =====
+    const loadCategories = async () => {
+      try {
+        const data = await apiFetch('/categories');
+        categories.value = Array.isArray(data) ? data : [];
+      } catch (e) {
+        console.error('Categories yuklanmadi:', e);
+      }
+    };
+
+    const loadProducts = async () => {
+      try {
+        const data = await apiFetch('/products?limit=50');
+        products.value = data.products || [];
+      } catch (e) {
+        console.error('Products yuklanmadi:', e);
+      }
+    };
+
+    // ===== WATCHERS =====
+    watch(cart, v => save('bz_cart', v), { deep: true });
+
+    // ===== INIT =====
+    onMounted(async () => {
+      // 1. Session tekshirish
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session?.user) {
+        const su = session.user;
+        user.value = {
+          id: su.id,
+          email: su.email,
+          name: su.user_metadata?.full_name || su.user_metadata?.name || 'Foydalanuvchi',
+          avatar: su.user_metadata?.avatar_url,
+        };
+      }
+
+      // 2. Auth listener
+      supabaseClient.auth.onAuthStateChange((_event, session) => {
+        if (session?.user) {
+          const su = session.user;
+          user.value = {
+            id: su.id,
+            email: su.email,
+            name: su.user_metadata?.full_name || su.user_metadata?.name || 'Foydalanuvchi',
+            avatar: su.user_metadata?.avatar_url,
+          };
+          authOpen.value = false;
+        } else {
+          user.value = null;
+        }
+      });
+
+      // 3. Ma'lumotlarni yuklash
+      await Promise.all([loadCategories(), loadProducts()]);
+
+      // 4. Loading off
+      setTimeout(() => {
+        isLoading.value = false;
+      }, 300);
+    });
+
+    return {
+      // State
+      currentView, searchQuery, selectedCategory, cartOpen, userMenuOpen,
+      isLoading, authOpen, authLoading, toast,
+      user, categories, products, cart,
+      // Computed
+      cartCount, cartTotal, filteredProducts,
+      // Methods
+      formatPrice, showToast, loginWithGoogle, logout, openAuth, navigate,
+      addToCart, removeFromCart, changeQty, checkout,
+      doSearch, openProduct,
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
